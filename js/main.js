@@ -23,6 +23,7 @@ class App {
     initUI() {
         // 既存のパラメータ値をUIに反映
         this.syncParamsToUI();
+        this.syncSpeedFromUI();
     }
 
     bindEvents() {
@@ -33,8 +34,13 @@ class App {
         // 速度スライダー
         const speedSlider = document.getElementById('speedSlider');
         speedSlider.addEventListener('input', (e) => {
-            this.speed = parseFloat(e.target.value);
-            document.getElementById('speedValue').textContent = this.speed;
+            const raw = parseFloat(e.target.value);
+            this.speed = this.speedFromSlider(raw);
+            const snapped = this.sliderFromSpeed(this.speed);
+            if (!isNaN(snapped)) {
+                e.target.value = snapped.toString();
+            }
+            this.updateSpeedDisplay();
         });
 
         // パラメータ入力
@@ -293,9 +299,47 @@ class App {
     resetSpeed() {
         this.speed = 1;
         const speedSlider = document.getElementById('speedSlider');
-        if (speedSlider) speedSlider.value = '1';
+        if (speedSlider) speedSlider.value = this.sliderFromSpeed(this.speed).toString();
+        this.updateSpeedDisplay();
+    }
+
+    syncSpeedFromUI() {
+        const speedSlider = document.getElementById('speedSlider');
+        if (!speedSlider) return;
+        const value = parseFloat(speedSlider.value);
+        this.speed = this.speedFromSlider(value);
+        speedSlider.value = this.sliderFromSpeed(this.speed).toString();
+        this.updateSpeedDisplay();
+    }
+
+    updateSpeedDisplay() {
         const speedValue = document.getElementById('speedValue');
-        if (speedValue) speedValue.textContent = '1';
+        if (speedValue) {
+            const label = this.speed < 1 ? this.speed.toFixed(1) : this.speed.toFixed(0);
+            speedValue.textContent = label;
+        }
+    }
+
+    speedFromSlider(value) {
+        if (isNaN(value)) return 1;
+        const clamped = Math.max(0, Math.min(100, value));
+        if (clamped <= 50) {
+            const idx = Math.round((clamped / 50) * 9);
+            return (idx + 1) / 10;
+        }
+        const idx = Math.round(((clamped - 50) / 50) * 9);
+        return 1 + idx;
+    }
+
+    sliderFromSpeed(speed) {
+        if (isNaN(speed)) return 50;
+        const clamped = Math.max(0.1, Math.min(10, speed));
+        if (clamped <= 1) {
+            const idx = Math.round(clamped * 10 - 1);
+            return Math.round((idx / 9) * 50);
+        }
+        const idx = Math.round(clamped - 1);
+        return Math.round(50 + (idx / 9) * 50);
     }
 
     updateStatus() {
