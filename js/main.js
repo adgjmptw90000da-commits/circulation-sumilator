@@ -13,6 +13,7 @@ class App {
 
         this.initUI();
         this.bindEvents();
+        this.updateControls();
 
         // 初回描画
         this.chartManager.update(this.simulator, this.getScaleSettings());
@@ -26,7 +27,7 @@ class App {
 
     bindEvents() {
         // コントロールボタン
-        document.getElementById('startBtn').addEventListener('click', () => this.start());
+        document.getElementById('startBtn').addEventListener('click', () => this.toggleRun());
         document.getElementById('stopBtn').addEventListener('click', () => this.stop());
         document.getElementById('resetBtn').addEventListener('click', () => this.reset());
 
@@ -207,9 +208,7 @@ class App {
     start() {
         if (this.isRunning) return;
         this.isRunning = true;
-
-        document.getElementById('startBtn').disabled = true;
-        document.getElementById('stopBtn').disabled = false;
+        this.updateControls();
 
         this.lastFrameTime = performance.now();
         this.animate();
@@ -217,9 +216,7 @@ class App {
 
     stop() {
         this.isRunning = false;
-
-        document.getElementById('startBtn').disabled = false;
-        document.getElementById('stopBtn').disabled = true;
+        this.updateControls();
 
         if (this.animationId) {
             cancelAnimationFrame(this.animationId);
@@ -229,7 +226,11 @@ class App {
 
     reset() {
         this.stop();
+        this.simulator.updateParams({ ...DEFAULT_PARAMS });
         this.simulator.reset();
+        this.syncParamsToUI();
+        this.resetScaleInputs();
+        this.resetSpeed();
         this.chartManager.update(this.simulator, this.getScaleSettings());
         this.updateStatus();
     }
@@ -255,6 +256,57 @@ class App {
         this.updateStatus();
 
         this.animationId = requestAnimationFrame(() => this.animate());
+    }
+
+    toggleRun() {
+        if (this.isRunning) {
+            this.stop();
+        } else {
+            this.start();
+        }
+    }
+
+    updateControls() {
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        if (!startBtn) return;
+
+        if (this.isRunning) {
+            startBtn.textContent = '⏸ 一時停止';
+            if (stopBtn) stopBtn.disabled = false;
+        } else {
+            startBtn.textContent = '▶ スタート';
+            if (stopBtn) stopBtn.disabled = true;
+        }
+    }
+
+    resetScaleInputs() {
+        const scaleIds = [
+            'la-pv-vmax',
+            'la-pv-pmax',
+            'lv-pv-vmax',
+            'lv-pv-pmax',
+            'monitor-pressure-lv-ao-max',
+            'monitor-pressure-la-max',
+            'scale-flow-max',
+            'scale-flow-min',
+            'scale-elastance-max'
+        ];
+
+        scaleIds.forEach((id) => {
+            const el = document.getElementById(id);
+            if (el && el.defaultValue !== undefined) {
+                el.value = el.defaultValue;
+            }
+        });
+    }
+
+    resetSpeed() {
+        this.speed = 1;
+        const speedSlider = document.getElementById('speedSlider');
+        if (speedSlider) speedSlider.value = '1';
+        const speedValue = document.getElementById('speedValue');
+        if (speedValue) speedValue.textContent = '1';
     }
 
     updateStatus() {
