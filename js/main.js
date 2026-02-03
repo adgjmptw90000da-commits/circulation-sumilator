@@ -28,7 +28,6 @@ class App {
     bindEvents() {
         // コントロールボタン
         document.getElementById('startBtn').addEventListener('click', () => this.toggleRun());
-        document.getElementById('stopBtn').addEventListener('click', () => this.stop());
         document.getElementById('resetBtn').addEventListener('click', () => this.reset());
 
         // 速度スライダー
@@ -225,14 +224,7 @@ class App {
     }
 
     reset() {
-        this.stop();
-        this.simulator.updateParams({ ...DEFAULT_PARAMS });
-        this.simulator.reset();
-        this.syncParamsToUI();
-        this.resetScaleInputs();
-        this.resetSpeed();
-        this.chartManager.update(this.simulator, this.getScaleSettings());
-        this.updateStatus();
+        window.location.reload();
     }
 
     animate() {
@@ -268,15 +260,12 @@ class App {
 
     updateControls() {
         const startBtn = document.getElementById('startBtn');
-        const stopBtn = document.getElementById('stopBtn');
         if (!startBtn) return;
 
         if (this.isRunning) {
             startBtn.textContent = '⏸ 一時停止';
-            if (stopBtn) stopBtn.disabled = false;
         } else {
             startBtn.textContent = '▶ スタート';
-            if (stopBtn) stopBtn.disabled = true;
         }
     }
 
