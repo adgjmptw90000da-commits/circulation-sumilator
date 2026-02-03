@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>循環シミュレーター</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <div class="app-container">
+        <!-- ヘッダー -->
+        <header class="header">
+            <h1>循環シミュレーター</h1>
+            <div class="controls">
+                <button id="startBtn" class="btn btn-primary">▶ スタート</button>
+                <button id="stopBtn" class="btn btn-secondary" disabled>■ ストップ</button>
+                <button id="resetBtn" class="btn btn-secondary">↺ リセット</button>
+                <div class="speed-control">
+                    <label>速度: <span id="speedValue">1</span>x</label>
+                    <input type="range" id="speedSlider" min="0.5" max="10" value="1" step="0.5">
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- パラメータパネル -->
+            <aside class="params-panel">
+                <h2>パラメータ</h2>
+
+                <details class="param-section">
+                    <summary>心拍</summary>
+                    <div class="param-content">
+                        <div class="param-row">
+                            <label>HR (bpm)</label>
+                            <input type="number" id="param-hr" value="75" min="30" max="200">
+                        </div>
+                        <div class="param-row">
+                            <label>PR間隔 (sec)</label>
+                            <input type="number" id="param-pr" value="0.15" step="0.01" min="-0.2" max="0.3">
+                        </div>
+                    </div>
+                </details>
+
+                <details class="param-section">
+                    <summary>静脈</summary>
+                    <div class="param-content">
+                        <div class="param-row">
+                            <label>Pv (mmHg)</label>
+                            <input type="number" id="param-pv" value="8" step="1" min="0" max="30">
+                        </div>
+                        <div class="param-row">
+                            <label>Rv (mmHg·s/mL)</label>
+                            <input type="number" id="param-rv" value="0.05" step="0.001" min="0.001" max="0.1">
+                        </div>
+                    </div>
+                </details>
+
+                <details class="param-section">
+                    <summary>左房</summary>
+                    <div class="param-content">
+                        <div class="param-row">
+                            <label>左房収縮</label>
+                            <select id="param-la-contraction">
+                                <option value="on" selected>あり</option>
+                                <option value="off">なし</option>
+                            </select>
+                        </div>
+                        <div class="param-row">
+                            <label>LA Ees (mmHg/mL)</label>
+                            <input type="number" id="param-la-ees" value="0.25" step="0.01" min="0.05" max="1">
+                        </div>
+                        <div class="param-row">
+                            <label>LA α (mmHg)</label>
+                            <input type="number" id="param-la-alpha" value="0.12" step="0.01" min="0.01" max="1">
+                        </div>
+                        <div class="param-row">
+                            <label>LA β (1/mL)</label>
+                            <input type="number" id="param-la-beta" value="0.05" step="0.01" min="0.01" max="0.2">
+                        </div>
+                        <div class="param-row">
+                            <label>LA V0 (mL)</label>
+                            <input type="number" id="param-la-v0" value="4" step="1" min="0" max="20">
+                        </div>
+                    </div>
+                </details>
+
+                <details class="param-section">
+                    <summary>僧帽弁</summary>
+                    <div class="param-content">
+                        <div class="param-row">
+                            <label>MS</label>
+                            <select id="param-ms">
+                                <option value="off" selected>なし</option>
+                                <option value="on">あり</option>
+                            </select>
+                        </div>
+                        <div class="param-row">
+                            <label>MVA (cm^2)</label>
+                            <input type="number" id="param-ms-mva" value="1.5" step="0.1" min="0.2" max="5">
+                        </div>
+                        <div class="param-row">
+                            <label>MVA 正常 (cm^2)</label>
+                            <input type="number" id="param-mv-area" value="4.0" step="0.1" min="1" max="8">
+                        </div>
+                        <div class="param-row">
+                            <label>MR</label>
+                            <select id="param-mr">
+                                <option value="off" selected>なし</option>
+                                <option value="on">あり</option>
+                            </select>
+                        </div>
+                        <div class="param-row">
+                            <label>MR EROA (cm^2)</label>
+                            <input type="number" id="param-mr-eroa" value="0.2" step="0.01" min="0" max="5">
+                        </div>
+                        <div class="param-row">
+                            <label>MR Cd</label>
+                            <input type="number" id="param-mr-cd" value="0.75" step="0.01" min="0.1" max="1.2">
+                        </div>
+                        <div class="param-row">
+                            <label>Rm (mmHg·s/mL)</label>
+                            <input type="number" id="param-rm" value="0.01" step="0.001" min="0.001" max="0.1">
+                        </div>
+                        <div class="param-row">
+                            <label>Lm (mmHg·s²/mL)</label>
+                        <input type="number" id="param-lm" value="0.0001" step="0.0001" min="0.0001" max="0.01">
+                        </div>
+                    </div>
+                </details>
+
+                <details class="param-section">
+                    <summary>左室</summary>
+                    <div class="param-content">
+                        <div class="param-row">
+                            <label>LV Ees (mmHg/mL)</label>
+                            <input type="number" id="param-lv-ees" value="2.3" step="0.1" min="0.5" max="5">
+                        </div>
+                        <div class="param-row">
+                            <label>LV α (mmHg)</label>
+                            <input type="number" id="param-lv-alpha" value="0.03" step="0.01" min="0.01" max="0.2">
+                        </div>
+                        <div class="param-row">
+                            <label>LV β (1/mL)</label>
+                            <input type="number" id="param-lv-beta" value="0.05" step="0.01" min="0.01" max="0.2">
+                        </div>
+                        <div class="param-row">
+                            <label>LV V0 (mL)</label>
+                            <input type="number" id="param-lv-v0" value="0" step="1" min="0" max="20">
+                        </div>
+                    </div>
+                </details>
+
+                <details class="param-section">
+                    <summary>大動脈弁</summary>
+                    <div class="param-content">
+                        <div class="param-row">
+                            <label>AS</label>
+                            <select id="param-as">
+                                <option value="off" selected>なし</option>
+                                <option value="on">あり</option>
+                            </select>
+                        </div>
+                        <div class="param-row">
+                            <label>AVA (cm^2)</label>
+                            <input type="number" id="param-as-ava" value="1.5" step="0.1" min="0.2" max="5">
+                        </div>
+                        <div class="param-row">
+                            <label>AR</label>
+                            <select id="param-ar">
+                                <option value="off" selected>なし</option>
+                                <option value="on">あり</option>
+                            </select>
+                        </div>
+                        <div class="param-row">
+                            <label>AR EROA (cm^2)</label>
+                            <input type="number" id="param-ar-eroa" value="0.3" step="0.01" min="0" max="5">
+                        </div>
+                        <div class="param-row">
+                            <label>AR Cd</label>
+                            <input type="number" id="param-ar-cd" value="0.88" step="0.01" min="0.1" max="1.2">
+                        </div>
+                        <div class="param-row">
+                            <label>Ra (mmHg·s/mL)</label>
+                            <input type="number" id="param-ra" value="0.02" step="0.001" min="0.001" max="0.1">
+                        </div>
+                        <div class="param-row">
+                            <label>La (mmHg·s²/mL)</label>
+                        <input type="number" id="param-la-inert" value="0.0001" step="0.0001" min="0.0001" max="0.01">
+                        </div>
+                    </div>
+                </details>
+
+                <details class="param-section">
+                    <summary>大動脈</summary>
+                    <div class="param-content">
+                        <div class="param-row">
+                            <label>Ca (mL/mmHg)</label>
+                            <input type="number" id="param-ca" value="1.5" step="0.1" min="0.5" max="5">
+                        </div>
+                        <div class="param-row">
+                            <label>SVR (dyn·s/cm⁵)</label>
+                            <input type="number" id="param-svr" value="1200" step="50" min="400" max="4000">
+                        </div>
+                    </div>
+                </details>
+
+                <details class="param-section">
+                    <summary>モニタースケール</summary>
+                    <div class="param-content">
+                        <div class="param-row">
+                            <label>圧 Max (LV/AO) (mmHg)</label>
+                            <input type="number" id="monitor-pressure-lv-ao-max" value="150" step="10" min="50" max="300">
+                        </div>
+                        <div class="param-row">
+                            <label>圧 Max (LA) (mmHg)</label>
+                            <input type="number" id="monitor-pressure-la-max" value="40" step="5" min="5" max="80">
+                        </div>
+                        <div class="param-row">
+                            <label>Flow Max (mL/s)</label>
+                            <input type="number" id="scale-flow-max" value="1200" step="100" min="200" max="2000">
+                        </div>
+                        <div class="param-row">
+                            <label>Flow Min (mL/s)</label>
+                            <input type="number" id="scale-flow-min" value="-200" step="50" min="-500" max="0">
+                        </div>
+                        <div class="param-row">
+                            <label>E Max (mmHg/mL)</label>
+                            <input type="number" id="scale-elastance-max" value="3" step="0.5" min="1" max="10">
+                        </div>
+                    </div>
+                </details>
+            </aside>
+
+            <!-- グラフエリア -->
+            <main class="charts-area">
+                <!-- 生体モニターセクション -->
+                <div class="vital-monitor">
+                    <div class="monitor-vitals">
+                        <div class="vital-item vital-hr">
+                            <span class="vital-label">HR</span>
+                            <span class="vital-value" id="vital-hr">75</span>
+                        </div>
+                        <div class="vital-item vital-bp">
+                            <span class="vital-label">ART</span>
+                            <span class="vital-values">
+                                <span class="vital-value" id="vital-sys">120</span>/<span class="vital-value vital-dia"
+                                    id="vital-dia">80</span>(<span id="vital-map">93</span>)
+                            </span>
+                        </div>
+                        <div class="vital-item vital-lap">
+                            <span class="vital-label">LAP</span>
+                            <span class="vital-values">
+                                <span class="vital-value" id="vital-lap-max">12</span>/<span
+                                    class="vital-value vital-dia" id="vital-lap-min">5</span>(<span
+                                    id="vital-lap-mean">8</span>)
+                            </span>
+                        </div>
+                        <div class="vital-item vital-lvp">
+                            <span class="vital-label">LVP</span>
+                            <span class="vital-values">
+                                <span class="vital-value" id="vital-lvp-max">120</span>/<span
+                                    class="vital-value vital-dia" id="vital-lvp-min">5</span>(<span
+                                    id="vital-lvp-mean">40</span>)
+                            </span>
+                        </div>
+                        <div class="vital-item vital-other">
+                            <span class="vital-label">CO</span>
+                            <span class="vital-value" id="vital-co">5.0</span>
+                        </div>
+                        <div class="vital-item vital-other">
+                            <span class="vital-label">SV</span>
+                            <span class="vital-value" id="vital-sv">70</span>
+                        </div>
+                        <div class="vital-item vital-other">
+                            <span class="vital-label">SVR</span>
+                            <span class="vital-value" id="vital-svr">1200</span>
+                        </div>
+                        <div class="vital-item vital-other">
+                            <span class="vital-label">LVEDP</span>
+                            <span class="vital-value" id="vital-lvedp">8</span>
+                        </div>
+                    </div>
+                    <div class="monitor-waveforms">
+                        <!-- 心電図 -->
+                        <div class="monitor-row">
+                            <canvas id="chart-ecg"></canvas>
+                        </div>
+                        <!-- 圧波形 -->
+                        <div class="monitor-row monitor-row-large">
+                            <canvas id="chart-pressure"></canvas>
+                        </div>
+                        <!-- 弁Flow -->
+                        <div class="monitor-row">
+                            <canvas id="chart-flow"></canvas>
+                        </div>
+                        <!-- エラスタンス -->
+                        <div class="monitor-row monitor-row-small">
+                            <canvas id="chart-elastance"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- その他のグラフ -->
+                <div class="charts-grid">
+
+                    <!-- 左房PVループ -->
+                    <div class="chart-container">
+                        <h3>左房 PVループ</h3>
+                        <canvas id="chart-la-pv"></canvas>
+                        <div class="scale-controls">
+                            <label>V: <input type="number" id="la-pv-vmax" value="120" min="20" max="200"></label>
+                            <label>P: <input type="number" id="la-pv-pmax" value="40" min="5" max="50"></label>
+                        </div>
+                    </div>
+
+                    <!-- 左室PVループ -->
+                    <div class="chart-container">
+                        <h3>左室 PVループ</h3>
+                        <canvas id="chart-lv-pv"></canvas>
+                        <div class="scale-controls">
+                            <label>V: <input type="number" id="lv-pv-vmax" value="150" min="50" max="300"></label>
+                            <label>P: <input type="number" id="lv-pv-pmax" value="200" min="50" max="300"></label>
+                        </div>
+                    </div>
+                </div>
+
+
+            </main>
+        </div>
+    </div>
+
+    <script src="js/constants.js"></script>
+    <script src="js/simulation.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/main.js"></script>
+</body>
+
+</html>
