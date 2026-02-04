@@ -47,7 +47,8 @@ const DEFAULT_PARAMS = {
 
     // 大動脈
     ca: 1.5,          // mL/mmHg
-    svr: 1200         // dynes·sec·cm⁻⁵
+    svr: 1200,        // dynes·sec·cm⁻⁵
+    aoArea: 4.0       // cm^2（上行大動脈断面積: Water hammer項）
 };
 
 // シミュレーション設定
@@ -80,6 +81,7 @@ const INITIAL_STATE = {
 
     // 大動脈
     aoPressure: 80,  // mmHg
+    aoReservoirPressure: 80, // mmHg（Windkesselリザーバー圧）
     radialPressure: 80,  // mmHg（橈骨動脈圧）
 
     // 弁の流量

@@ -677,16 +677,25 @@ class CirculationSimulator {
             console.warn(`P > ESPVR! P=${this.state.lvPressure.toFixed(1)}, ESPVR_P=${espvrP.toFixed(1)}, V=${this.state.lvVolume.toFixed(1)}, E=${lvE.toFixed(4)}, Ees=${this.params.lvEes}`);
         }
 
-        // === 大動脈圧（Windkesselモデル）===
+        // === 大動脈圧（拡張期: Windkessel + 収縮期: Water hammer上乗せ）===
         // SVRはdynes·sec·cm⁻⁵で格納 → mmHg·s/mLに変換（÷1333）
         const svrMmHg = this.params.svr / 1333;
-        const aorticOutflow = this.state.aoPressure / svrMmHg; // 全身への流出量
+        const aoReservoirPressure = this.state.aoReservoirPressure ?? this.state.aoPressure;
+        const aorticOutflow = aoReservoirPressure / svrMmHg; // 全身への流出量
 
         // 静脈容量更新: 流入（全身から） - 流出（左房へ）
         this.state.vvVolume += (aorticOutflow - venousFlow) * dt;
 
-        this.state.aoPressure += (aorticFlow - aorticOutflow) / this.params.ca * dt;
-        this.state.aoPressure = Math.max(0, this.state.aoPressure);
+        // リザーバー圧（Windkessel）
+        const nextReservoirPressure = Math.max(
+            0,
+            aoReservoirPressure + (aorticFlow - aorticOutflow) / this.params.ca * dt
+        );
+        this.state.aoReservoirPressure = nextReservoirPressure;
+
+        // 収縮期（順行性流入あり）にWater hammer項を上乗せ
+        const waterHammerPressure = this.calcWaterHammerPressure(aorticFlow);
+        this.state.aoPressure = Math.max(0, nextReservoirPressure + waterHammerPressure);
 
         // ECG生成
         this.state.ecgValue = this.generateECG(cycleTime, timings);
@@ -741,6 +750,21 @@ class CirculationSimulator {
         const k = 2.5;  // 較正定数（Ca=1.5で PWV ≈ 2.0 m/s程度）
         const PWV = k / Math.sqrt(this.params.ca);
         return PWV;  // [m/s]
+    }
+
+    /**
+     * Water hammer式で収縮期の圧上乗せ項を計算
+     * ΔP = ρ * c * Δv から、Qと断面積で表現
+     */
+    calcWaterHammerPressure(aorticFlow) {
+        if (aorticFlow <= 0) return 0;
+        const areaCm2 = Math.max(0.1, this.params.aoArea || 4.0);
+        const pwv = this.calcPWV(); // [m/s]
+        const rho = 1060; // [kg/m^3]
+        const flowM3s = aorticFlow * 1e-6; // [mL/s] -> [m^3/s]
+        const areaM2 = areaCm2 * 1e-4;     // [cm^2] -> [m^2]
+        const deltaPpa = rho * pwv * (flowM3s / areaM2); // [Pa]
+        return deltaPpa / 133.322; // [mmHg]
     }
 
     /**

@@ -79,6 +79,7 @@ class App {
             'param-ar-eroa': 'arEroa',
             'param-ar-cd': 'arCd',
             'param-ca': 'ca',
+            'param-ao-area': 'aoArea',
             'param-svr': 'svr'
         };
 
@@ -186,6 +187,7 @@ class App {
         setInput('param-ra', params.ra);
         setInput('param-la-inert', params.la);
         setInput('param-ca', params.ca);
+        setInput('param-ao-area', params.aoArea);
         setInput('param-svr', params.svr);
     }
 
