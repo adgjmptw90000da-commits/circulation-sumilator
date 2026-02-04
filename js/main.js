@@ -16,7 +16,7 @@ class App {
         this.updateControls();
 
         // 初回描画
-        this.chartManager.update(this.simulator, this.getScaleSettings());
+        this.chartManager.update(this.simulator, this.getScaleSettings(), null, this.getWaveformVisibility());
         this.updateStatus();
     }
 
@@ -24,12 +24,26 @@ class App {
         // 既存のパラメータ値をUIに反映
         this.syncParamsToUI();
         this.syncSpeedFromUI();
+        this.applyPressureVitalVisibility();
     }
 
     bindEvents() {
         // コントロールボタン
         document.getElementById('startBtn').addEventListener('click', () => this.toggleRun());
+        document.getElementById('openSettingsBtn').addEventListener('click', () => this.openSettingsModal());
         document.getElementById('resetBtn').addEventListener('click', () => this.reset());
+        document.getElementById('closeSettingsBtn').addEventListener('click', () => this.closeSettingsModal());
+
+        const settingsModal = document.getElementById('settingsModal');
+        settingsModal.addEventListener('click', (e) => {
+            if (e.target === settingsModal) {
+                this.closeSettingsModal();
+            }
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') this.closeSettingsModal();
+        });
 
         // 速度スライダー
         const speedSlider = document.getElementById('speedSlider');
@@ -43,13 +57,26 @@ class App {
             this.updateSpeedDisplay();
         });
 
+        document.querySelectorAll('.waveform-toggle').forEach((checkbox) => {
+            checkbox.addEventListener('change', () => {
+                this.applyPressureVitalVisibility();
+                this.redrawNow();
+            });
+        });
+
+        document.querySelectorAll('.scale-input').forEach((input) => {
+            const redraw = () => this.redrawNow();
+            input.addEventListener('change', redraw);
+            input.addEventListener('input', redraw);
+        });
+
         // パラメータ入力
         this.bindParamInputs();
 
         // リサイズ対応
         window.addEventListener('resize', () => {
             this.chartManager.resize();
-            this.chartManager.update(this.simulator, this.getScaleSettings());
+            this.chartManager.update(this.simulator, this.getScaleSettings(), null, this.getWaveformVisibility());
         });
     }
 
@@ -235,6 +262,16 @@ class App {
         window.location.reload();
     }
 
+    openSettingsModal() {
+        const modal = document.getElementById('settingsModal');
+        if (modal) modal.removeAttribute('hidden');
+    }
+
+    closeSettingsModal() {
+        const modal = document.getElementById('settingsModal');
+        if (modal) modal.setAttribute('hidden', '');
+    }
+
     animate() {
         if (!this.isRunning) return;
 
@@ -252,7 +289,7 @@ class App {
 
         // 描画（60fps程度に抑制）
         const metrics = this.calculateMetrics();
-        this.chartManager.update(this.simulator, this.getScaleSettings(), metrics);
+        this.chartManager.update(this.simulator, this.getScaleSettings(), metrics, this.getWaveformVisibility());
         this.updateStatus();
 
         this.animationId = requestAnimationFrame(() => this.animate());
@@ -275,6 +312,41 @@ class App {
         } else {
             startBtn.textContent = '▶ スタート';
         }
+    }
+
+    applyPressureVitalVisibility() {
+        const visibility = this.getWaveformVisibility();
+        const mapping = {
+            art: visibility.art,
+            lap: visibility.lap,
+            lvp: visibility.lvp
+        };
+        for (const [key, show] of Object.entries(mapping)) {
+            const item = document.querySelector(`[data-vital-item="${key}"]`);
+            if (item) item.style.display = show ? '' : 'none';
+        }
+    }
+
+    getWaveformVisibility() {
+        const read = (key) => {
+            const el = document.querySelector(`.waveform-toggle[value="${key}"]`);
+            return el ? el.checked : true;
+        };
+        return {
+            art: read('art'),
+            lvp: read('lvp'),
+            lap: read('lap'),
+            avFlow: read('avFlow'),
+            mvFlow: read('mvFlow'),
+            pvFlow: read('pvFlow'),
+            laElastance: read('laElastance'),
+            lvElastance: read('lvElastance')
+        };
+    }
+
+    redrawNow() {
+        const metrics = this.calculateMetrics();
+        this.chartManager.update(this.simulator, this.getScaleSettings(), metrics, this.getWaveformVisibility());
     }
 
     resetScaleInputs() {

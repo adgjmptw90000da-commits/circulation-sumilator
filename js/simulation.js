@@ -695,7 +695,8 @@ class CirculationSimulator {
 
         // 収縮期（順行性流入あり）にWater hammer項を上乗せ
         const waterHammerPressure = this.calcWaterHammerPressure(aorticFlow);
-        this.state.aoPressure = Math.max(0, nextReservoirPressure + waterHammerPressure);
+        const reflectedPressure = this.calcAorticReflectedPressure();
+        this.state.aoPressure = Math.max(0, nextReservoirPressure + waterHammerPressure + reflectedPressure);
 
         // ECG生成
         this.state.ecgValue = this.generateECG(cycleTime, timings);
@@ -768,6 +769,27 @@ class CirculationSimulator {
     }
 
     /**
+     * 中枢大動脈のaugmentation（反射波上乗せ）
+     * PWVに応じて反射波の到達タイミングが変化する
+     */
+    calcAorticReflectedPressure() {
+        const pwv = Math.max(0.1, this.calcPWV());
+        const reflectionDistance = 0.45; // [m] 大動脈基部から主反射点まで
+        const roundTripDelay = (2 * reflectionDistance) / pwv; // [s]
+        const delayedFlow = this.getHistoryValueAtTime(
+            this.history.aorticFlow,
+            this.state.time - roundTripDelay,
+            0
+        );
+
+        if (delayedFlow <= 0) return 0;
+
+        // 中枢でのaugmentationは末梢反射より小さめに設定
+        const gammaCentral = this.calcReflectionCoefficient() * 0.4;
+        return gammaCentral * this.calcWaterHammerPressure(delayedFlow);
+    }
+
+    /**
      * 反射係数を計算
      * SVRが高いほど反射波が強くなる
      */
@@ -784,34 +806,41 @@ class CirculationSimulator {
      * 履歴から指定時刻の大動脈圧を線形補間で取得
      */
     getPressureAtTime(targetTime) {
+        return this.getHistoryValueAtTime(this.history.aoPressure, targetTime, this.state.aoPressure);
+    }
+
+    /**
+     * 履歴から指定時刻の値を線形補間で取得
+     */
+    getHistoryValueAtTime(dataSeries, targetTime, fallbackValue) {
         const h = this.history;
-        const pressureData = h.aoPressure;
+        const series = dataSeries;
 
         // 履歴が不足している場合は現在の値を返す
-        if (h.time.length < 2) {
-            return this.state.aoPressure;
+        if (!series || h.time.length < 2 || series.length < 2) {
+            return fallbackValue;
         }
 
         // 範囲外（過去すぎる）場合は最古の値
         if (targetTime <= h.time[0]) {
-            return pressureData[0];
+            return series[0];
         }
 
         // 範囲外（未来）場合は最新の値
         if (targetTime >= h.time[h.time.length - 1]) {
-            return pressureData[pressureData.length - 1];
+            return series[series.length - 1];
         }
 
         // 線形補間
         for (let i = 0; i < h.time.length - 1; i++) {
             if (h.time[i] <= targetTime && targetTime < h.time[i + 1]) {
                 const alpha = (targetTime - h.time[i]) / (h.time[i + 1] - h.time[i]);
-                return pressureData[i] * (1 - alpha) + pressureData[i + 1] * alpha;
+                return series[i] * (1 - alpha) + series[i + 1] * alpha;
             }
         }
 
         // フォールバック
-        return pressureData[pressureData.length - 1] || this.state.aoPressure;
+        return series[series.length - 1] ?? fallbackValue;
     }
 
     /**

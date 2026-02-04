@@ -15,6 +15,7 @@
             <h1>循環シミュレーター</h1>
             <div class="controls">
                 <button id="startBtn" class="btn btn-primary">▶ スタート</button>
+                <button id="openSettingsBtn" type="button" class="btn btn-secondary">⚙ 設定</button>
                 <button id="resetBtn" class="btn btn-secondary">↺ リセット</button>
                 <div class="speed-control">
                     <label>速度: <span id="speedValue" class="speed-value">1</span>x</label>
@@ -209,31 +210,6 @@
                     </div>
                 </details>
 
-                <details class="param-section">
-                    <summary>モニタースケール</summary>
-                    <div class="param-content">
-                        <div class="param-row">
-                            <label>圧 Max (LV/AO) (mmHg)</label>
-                            <input type="number" id="monitor-pressure-lv-ao-max" value="150" step="10" min="50" max="300">
-                        </div>
-                        <div class="param-row">
-                            <label>圧 Max (LA) (mmHg)</label>
-                            <input type="number" id="monitor-pressure-la-max" value="40" step="5" min="5" max="80">
-                        </div>
-                        <div class="param-row">
-                            <label>Flow Max (mL/s)</label>
-                            <input type="number" id="scale-flow-max" value="1200" step="100" min="200" max="2000">
-                        </div>
-                        <div class="param-row">
-                            <label>Flow Min (mL/s)</label>
-                            <input type="number" id="scale-flow-min" value="-200" step="50" min="-500" max="0">
-                        </div>
-                        <div class="param-row">
-                            <label>E Max (mmHg/mL)</label>
-                            <input type="number" id="scale-elastance-max" value="3" step="0.5" min="1" max="10">
-                        </div>
-                    </div>
-                </details>
             </aside>
 
             <!-- グラフエリア -->
@@ -241,18 +217,18 @@
                 <!-- 生体モニターセクション -->
                 <div class="vital-monitor">
                     <div class="monitor-vitals">
-                        <div class="vital-item vital-hr">
+                        <div class="vital-item vital-hr" data-vital-item="hr">
                             <span class="vital-label">HR</span>
                             <span class="vital-value" id="vital-hr">75</span>
                         </div>
-                        <div class="vital-item vital-bp">
+                        <div class="vital-item vital-bp" data-vital-item="art">
                             <span class="vital-label">ART</span>
                             <span class="vital-values">
                                 <span class="vital-value" id="vital-sys">120</span>/<span class="vital-value vital-dia"
                                     id="vital-dia">80</span>(<span id="vital-map">93</span>)
                             </span>
                         </div>
-                        <div class="vital-item vital-lap">
+                        <div class="vital-item vital-lap" data-vital-item="lap">
                             <span class="vital-label">LAP</span>
                             <span class="vital-values">
                                 <span class="vital-value" id="vital-lap-max">12</span>/<span
@@ -260,7 +236,7 @@
                                     id="vital-lap-mean">8</span>)
                             </span>
                         </div>
-                        <div class="vital-item vital-lvp">
+                        <div class="vital-item vital-lvp" data-vital-item="lvp">
                             <span class="vital-label">LVP</span>
                             <span class="vital-values">
                                 <span class="vital-value" id="vital-lvp-max">120</span>/<span
@@ -268,19 +244,19 @@
                                     id="vital-lvp-mean">40</span>)
                             </span>
                         </div>
-                        <div class="vital-item vital-other">
+                        <div class="vital-item vital-other" data-vital-item="co">
                             <span class="vital-label">CO</span>
                             <span class="vital-value" id="vital-co">5.0</span>
                         </div>
-                        <div class="vital-item vital-other">
+                        <div class="vital-item vital-other" data-vital-item="sv">
                             <span class="vital-label">SV</span>
                             <span class="vital-value" id="vital-sv">70</span>
                         </div>
-                        <div class="vital-item vital-other">
+                        <div class="vital-item vital-other" data-vital-item="svr">
                             <span class="vital-label">SVR</span>
                             <span class="vital-value" id="vital-svr">1200</span>
                         </div>
-                        <div class="vital-item vital-other">
+                        <div class="vital-item vital-other" data-vital-item="lvedp">
                             <span class="vital-label">LVEDP</span>
                             <span class="vital-value" id="vital-lvedp">8</span>
                         </div>
@@ -312,25 +288,78 @@
                     <div class="chart-container">
                         <h3>左房 PVループ</h3>
                         <canvas id="chart-la-pv"></canvas>
-                        <div class="scale-controls">
-                            <label>V: <input type="number" id="la-pv-vmax" value="120" min="20" max="200"></label>
-                            <label>P: <input type="number" id="la-pv-pmax" value="40" min="5" max="50"></label>
-                        </div>
                     </div>
 
                     <!-- 左室PVループ -->
                     <div class="chart-container">
                         <h3>左室 PVループ</h3>
                         <canvas id="chart-lv-pv"></canvas>
-                        <div class="scale-controls">
-                            <label>V: <input type="number" id="lv-pv-vmax" value="150" min="50" max="300"></label>
-                            <label>P: <input type="number" id="lv-pv-pmax" value="200" min="50" max="300"></label>
-                        </div>
                     </div>
                 </div>
 
 
             </main>
+        </div>
+    </div>
+
+    <div id="settingsModal" class="modal-overlay" hidden>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>表示項目・スケール設定</h3>
+                <button id="closeSettingsBtn" type="button" class="btn btn-secondary">閉じる</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-section">
+                    <h4>波形表示項目</h4>
+                    <div class="toggle-grid">
+                        <label><input type="checkbox" class="waveform-toggle" value="art" checked> ART</label>
+                        <label><input type="checkbox" class="waveform-toggle" value="lvp" checked> LVP</label>
+                        <label><input type="checkbox" class="waveform-toggle" value="lap" checked> LAP</label>
+                        <label><input type="checkbox" class="waveform-toggle" value="avFlow" checked> AV flow</label>
+                        <label><input type="checkbox" class="waveform-toggle" value="mvFlow" checked> MV flow</label>
+                        <label><input type="checkbox" class="waveform-toggle" value="pvFlow" checked> PV flow</label>
+                        <label><input type="checkbox" class="waveform-toggle" value="laElastance" checked> LA elastance</label>
+                        <label><input type="checkbox" class="waveform-toggle" value="lvElastance" checked> LV elastance</label>
+                    </div>
+                </div>
+                <div class="modal-section">
+                    <h4>モニタースケール</h4>
+                    <div class="modal-grid">
+                        <label>圧 Max (LV/AO)
+                            <input type="number" class="scale-input" id="monitor-pressure-lv-ao-max" value="150" step="10" min="50" max="300">
+                        </label>
+                        <label>圧 Max (LA)
+                            <input type="number" class="scale-input" id="monitor-pressure-la-max" value="40" step="5" min="5" max="80">
+                        </label>
+                        <label>Flow Max
+                            <input type="number" class="scale-input" id="scale-flow-max" value="1200" step="100" min="200" max="2000">
+                        </label>
+                        <label>Flow Min
+                            <input type="number" class="scale-input" id="scale-flow-min" value="-200" step="50" min="-500" max="0">
+                        </label>
+                        <label>E Max
+                            <input type="number" class="scale-input" id="scale-elastance-max" value="3" step="0.5" min="1" max="10">
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-section">
+                    <h4>PVループスケール</h4>
+                    <div class="modal-grid">
+                        <label>LA V Max
+                            <input type="number" class="scale-input" id="la-pv-vmax" value="120" min="20" max="200">
+                        </label>
+                        <label>LA P Max
+                            <input type="number" class="scale-input" id="la-pv-pmax" value="40" min="5" max="50">
+                        </label>
+                        <label>LV V Max
+                            <input type="number" class="scale-input" id="lv-pv-vmax" value="150" min="50" max="300">
+                        </label>
+                        <label>LV P Max
+                            <input type="number" class="scale-input" id="lv-pv-pmax" value="200" min="50" max="300">
+                        </label>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

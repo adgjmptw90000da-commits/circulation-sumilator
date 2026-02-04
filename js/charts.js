@@ -450,10 +450,20 @@ class ChartManager {
     /**
      * すべてのチャートを更新
      */
-    update(simulator, scaleSettings, metrics = null) {
+    update(simulator, scaleSettings, metrics = null, waveformVisibility = {}) {
         const history = simulator.getHistory();
         const state = simulator.getState();
         const params = simulator.params;
+        const visibility = {
+            art: waveformVisibility.art !== false,
+            lvp: waveformVisibility.lvp !== false,
+            lap: waveformVisibility.lap !== false,
+            avFlow: waveformVisibility.avFlow !== false,
+            mvFlow: waveformVisibility.mvFlow !== false,
+            pvFlow: waveformVisibility.pvFlow !== false,
+            laElastance: waveformVisibility.laElastance !== false,
+            lvElastance: waveformVisibility.lvElastance !== false
+        };
 
         if (history.time.length < 2) return;
 
@@ -476,8 +486,12 @@ class ChartManager {
             chart.ctx.fillStyle = '#000000';
             chart.ctx.fillRect(0, 0, chart.width, chart.height);
             this.drawSweepGrid(chart, 0, eMax);
-            this.drawSweepLine(chart, history.time, history.laElastance, currentTime, 0, eMax, this.colors.la);
-            this.drawSweepLine(chart, history.time, history.lvElastance, currentTime, 0, eMax, this.colors.lv);
+            if (visibility.laElastance) {
+                this.drawSweepLine(chart, history.time, history.laElastance, currentTime, 0, eMax, this.colors.la);
+            }
+            if (visibility.lvElastance) {
+                this.drawSweepLine(chart, history.time, history.lvElastance, currentTime, 0, eMax, this.colors.lv);
+            }
             this.drawSweepCursor(chart, currentTime);
         }
 
@@ -496,11 +510,11 @@ class ChartManager {
             chart.ctx.fillRect(0, 0, chart.width, chart.height);
 
             // マルチスケールグリッド描画
-            this.drawMultiScaleYAxis(chart, [
-                { min: 0, max: aoMax, color: this.colors.ao },
-                { min: 0, max: lvMax, color: this.colors.lv }, // LVはAoと同じでもいいが、あえて並べる
-                { min: 0, max: laMax, color: this.colors.la }
-            ]);
+            const pressureScales = [];
+            if (visibility.art) pressureScales.push({ min: 0, max: aoMax, color: this.colors.ao });
+            if (visibility.lvp) pressureScales.push({ min: 0, max: lvMax, color: this.colors.lv });
+            if (visibility.lap) pressureScales.push({ min: 0, max: laMax, color: this.colors.la });
+            this.drawMultiScaleYAxis(chart, pressureScales);
 
             // ゼロライン（ベースライン）
             chart.ctx.strokeStyle = '#444';
@@ -513,26 +527,35 @@ class ChartManager {
 
 
             // 左房圧 (個別スケール laMax)
-            this.drawSweepLine(chart, history.time, history.laPressure, currentTime, 0, laMax, this.colors.la);
+            if (visibility.lap) {
+                this.drawSweepLine(chart, history.time, history.laPressure, currentTime, 0, laMax, this.colors.la);
+            }
             // 左室圧 (個別スケール lvMax)
-            this.drawSweepLine(chart, history.time, history.lvPressure, currentTime, 0, lvMax, this.colors.lv);
+            if (visibility.lvp) {
+                this.drawSweepLine(chart, history.time, history.lvPressure, currentTime, 0, lvMax, this.colors.lv);
+            }
             // 大動脈圧 (個別スケール aoMax)
-            this.drawSweepLine(chart, history.time, history.aoPressure, currentTime, 0, aoMax, this.colors.ao);
+            if (visibility.art) {
+                this.drawSweepLine(chart, history.time, history.aoPressure, currentTime, 0, aoMax, this.colors.ao);
+            }
             // 静脈圧 (スケールはLAと同じにするか、独自にするか。今回はLAに合わせるか表示しない) -- 以前削除したので描画しない
 
             this.drawSweepCursor(chart, currentTime);
             this.drawSweepCursor(chart, currentTime);
 
             // 凡例
+            const legends = [];
+            if (visibility.lap) legends.push({ label: 'LA', color: this.colors.la });
+            if (visibility.lvp) legends.push({ label: 'LV', color: this.colors.lv });
+            if (visibility.art) legends.push({ label: 'AO', color: this.colors.ao });
             chart.ctx.font = '10px sans-serif';
             chart.ctx.textAlign = 'right';
-
-            chart.ctx.fillStyle = this.colors.la;
-            chart.ctx.fillText('LA', chart.width - 80, 12);
-            chart.ctx.fillStyle = this.colors.lv;
-            chart.ctx.fillText('LV', chart.width - 50, 12);
-            chart.ctx.fillStyle = this.colors.ao;
-            chart.ctx.fillText('AO', chart.width - 20, 12);
+            let legendX = chart.width - 10;
+            legends.slice().reverse().forEach((item) => {
+                chart.ctx.fillStyle = item.color;
+                chart.ctx.fillText(item.label, legendX, 12);
+                legendX -= 30;
+            });
         }
 
         // === 弁Flow（スイープ表示） ===
@@ -543,9 +566,15 @@ class ChartManager {
             chart.ctx.fillStyle = '#000000';
             chart.ctx.fillRect(0, 0, chart.width, chart.height);
             this.drawSweepGrid(chart, flowMin, flowMax);
-            this.drawSweepLine(chart, history.time, history.venousFlow, currentTime, flowMin, flowMax, this.colors.vein, 1.5, true);
-            this.drawSweepLine(chart, history.time, history.mitralFlow, currentTime, flowMin, flowMax, this.colors.mitral, 1.5, true);
-            this.drawSweepLine(chart, history.time, history.aorticFlow, currentTime, flowMin, flowMax, this.colors.aortic, 1.5, true);
+            if (visibility.pvFlow) {
+                this.drawSweepLine(chart, history.time, history.venousFlow, currentTime, flowMin, flowMax, this.colors.vein, 1.5, true);
+            }
+            if (visibility.mvFlow) {
+                this.drawSweepLine(chart, history.time, history.mitralFlow, currentTime, flowMin, flowMax, this.colors.mitral, 1.5, true);
+            }
+            if (visibility.avFlow) {
+                this.drawSweepLine(chart, history.time, history.aorticFlow, currentTime, flowMin, flowMax, this.colors.aortic, 1.5, true);
+            }
             this.drawSweepCursor(chart, currentTime);
         }
 
