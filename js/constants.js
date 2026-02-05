@@ -82,8 +82,6 @@ const INITIAL_STATE = {
     // 大動脈
     aoPressure: 80,  // mmHg
     aoReservoirPressure: 80, // mmHg（Windkesselリザーバー圧）
-    radialPressure: 80,  // mmHg（橈骨動脈圧）
-
     // 弁の流量
     mitralFlow: 0,   // mL/s（正負を含む合算）
     mitralForwardFlow: 0, // mL/s（順行性のみ）

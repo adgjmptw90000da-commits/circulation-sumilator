@@ -16,7 +16,6 @@ class CirculationSimulator {
             lvVolume: [],
             lvElastance: [],
             aoPressure: [],
-            radialPressure: [],  // 橈骨動脈圧の履歴
             mitralFlow: [],
             aorticFlow: [],
             venousFlow: [],
@@ -701,9 +700,6 @@ class CirculationSimulator {
         // ECG生成
         this.state.ecgValue = this.generateECG(cycleTime, timings);
 
-        // 末梢動脈圧（橈骨動脈）計算
-        this.state.radialPressure = this.calcPeripheralPressure();
-
         // 履歴に追加
         this.recordHistory();
 
@@ -721,7 +717,6 @@ class CirculationSimulator {
         h.lvVolume.push(this.state.lvVolume);
         h.lvElastance.push(this.state.lvElastance);
         h.aoPressure.push(this.state.aoPressure);
-        h.radialPressure.push(this.state.radialPressure);
         h.mitralFlow.push(this.state.mitralFlow);
         h.aorticFlow.push(this.state.aorticFlow);
         h.venousFlow.push(this.state.venousFlow);
@@ -774,7 +769,8 @@ class CirculationSimulator {
      */
     calcAorticReflectedPressure() {
         const pwv = Math.max(0.1, this.calcPWV());
-        const reflectionDistance = 0.45; // [m] 大動脈基部から主反射点まで
+        // 中枢大動脈は主に下肢系の反射を受ける想定
+        const reflectionDistance = 0.60; // [m] 大動脈基部から下肢主反射点まで
         const roundTripDelay = (2 * reflectionDistance) / pwv; // [s]
         const delayedFlow = this.getHistoryValueAtTime(
             this.history.aorticFlow,
@@ -784,8 +780,11 @@ class CirculationSimulator {
 
         if (delayedFlow <= 0) return 0;
 
-        // 中枢でのaugmentationは末梢反射より小さめに設定
-        const gammaCentral = this.calcReflectionCoefficient() * 0.4;
+        // 中枢は弱めのaugmentationにする（SVRで強さも変化）
+        const svrRatio = Math.max(0.3, this.params.svr / 1200);
+        const svrStrength = Math.min(1.4, Math.max(0.7, Math.pow(svrRatio, 0.5)));
+        const gammaCentralBase = Math.min(0.22, Math.max(0.05, this.calcReflectionCoefficient() * 0.25));
+        const gammaCentral = Math.min(0.26, Math.max(0.04, gammaCentralBase * svrStrength));
         return gammaCentral * this.calcWaterHammerPressure(delayedFlow);
     }
 
@@ -841,39 +840,6 @@ class CirculationSimulator {
 
         // フォールバック
         return series[series.length - 1] ?? fallbackValue;
-    }
-
-    /**
-     * 末梢動脈圧（橈骨動脈）を計算
-     * 順行波 + 反射波の合成
-     */
-    calcPeripheralPressure() {
-        const PWV = this.calcPWV();
-        const reflectionCoeff = this.calcReflectionCoefficient();
-
-        // 大動脈弁から橈骨動脈までの距離 [m]
-        const L_ao_to_radial = 0.25;
-        // 反射部位までの距離 [m]（下肢末梢）
-        const L_reflection_site = 0.5;
-
-        // 伝播時間 [s]
-        const t_forward = L_ao_to_radial / PWV;
-        const t_reflect = 2 * L_reflection_site / PWV;
-
-        // 過去の圧値を取得
-        const P_forward = this.getPressureAtTime(this.state.time - t_forward);
-        const P_reflected_raw = this.getPressureAtTime(this.state.time - t_forward - t_reflect);
-
-        // 平均圧を計算（簡易的に現在の大動脈圧の移動平均を使用）
-        const P_mean = this.getMeanAorticPressure();
-
-        // 反射波は平均圧からの変動分のみを使用（平均圧を保存するため）
-        const P_reflected_variation = P_reflected_raw - P_mean;
-
-        // 合成: 順行波 + 反射波の変動成分
-        const P_radial = P_forward + reflectionCoeff * P_reflected_variation;
-
-        return Math.max(0, P_radial);
     }
 
     /**

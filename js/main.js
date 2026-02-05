@@ -484,6 +484,7 @@ class App {
         const history = this.simulator.getHistory();
         if (history.lvVolume.length < 10) return null;
 
+        const params = this.simulator.params;
         const cycleDuration = 60 / this.simulator.params.hr;
         const samplesPerCycle = Math.floor(cycleDuration / SIM_CONFIG.dt);
 
@@ -507,7 +508,75 @@ class App {
         const ea = sv > 0 ? esp / sv : 0;
 
         // Ees (mmHg/mL) - パラメータから取得
-        const ees = this.simulator.params.lvEes;
+        const ees = params.lvEes;
+
+        // === EW / PW / 仕事効率 ===
+        const calcLoopArea = (vData, pData) => {
+            let area = 0;
+            for (let i = 0; i < vData.length - 1; i++) {
+                area += 0.5 * (pData[i] + pData[i + 1]) * (vData[i + 1] - vData[i]);
+            }
+            return Math.abs(area);
+        };
+
+        const calcSystolicSegment = () => {
+            const edvIndex = lvV.indexOf(edv);
+            const esvIndex = lvV.indexOf(esv);
+            const segV = [];
+            const segP = [];
+            let idx = edvIndex;
+            for (let count = 0; count < lvV.length; count++) {
+                segV.push(lvV[idx]);
+                segP.push(lvP[idx]);
+                if (idx === esvIndex) break;
+                idx = (idx + 1) % lvV.length;
+            }
+            return { segV, segP };
+        };
+
+        const calcPVA = () => {
+            if (edv <= 0) return 0;
+            const v0 = Math.min(params.lvV0, esv);
+            const espvrSteps = 20;
+            const edpvrSteps = 20;
+            const points = [];
+
+            // ESPVR: V0 → ESV
+            const v0ToEsv = Math.max(1, esv - v0);
+            for (let i = 0; i <= espvrSteps; i++) {
+                const v = v0 + (v0ToEsv * i) / espvrSteps;
+                const p = Math.max(0, ees * (v - v0));
+                points.push([v, p]);
+            }
+
+            // 収縮期PV（ESV → EDV）を逆順で追加
+            const { segV, segP } = calcSystolicSegment();
+            for (let i = segV.length - 1; i >= 0; i--) {
+                points.push([segV[i], segP[i]]);
+            }
+
+            // EDPVR: EDV → V0
+            const edvToV0 = Math.max(1, edv - v0);
+            for (let i = 0; i <= edpvrSteps; i++) {
+                const v = edv - (edvToV0 * i) / edpvrSteps;
+                const p = params.lvAlpha * (Math.exp(params.lvBeta * (v - v0)) - 1);
+                points.push([v, Math.max(0, p)]);
+            }
+
+            // Shoelace formula
+            let area = 0;
+            for (let i = 0; i < points.length; i++) {
+                const [x1, y1] = points[i];
+                const [x2, y2] = points[(i + 1) % points.length];
+                area += x1 * y2 - x2 * y1;
+            }
+            return Math.abs(area) / 2;
+        };
+
+        const ew = calcLoopArea(lvV, lvP);
+        const pva = calcPVA();
+        const pw = Math.max(0, pva - ew);
+        const efficiency = pva > 0 ? (ew / pva) * 100 : 0;
 
         return {
             sv: Math.round(sv),
@@ -515,7 +584,10 @@ class App {
             ea: ea.toFixed(1),
             ees: ees.toFixed(1),
             edv: Math.round(edv),
-            esv: Math.round(esv)
+            esv: Math.round(esv),
+            ew: Math.round(ew),
+            pw: Math.round(pw),
+            efficiency: efficiency.toFixed(1)
         };
     }
 }

@@ -554,7 +554,7 @@ class ChartManager {
             legends.slice().reverse().forEach((item) => {
                 chart.ctx.fillStyle = item.color;
                 chart.ctx.fillText(item.label, legendX, 12);
-                legendX -= 30;
+                legendX -= 36;
             });
         }
 
@@ -627,9 +627,10 @@ class ChartManager {
             const textX = chart.width - 10;
             const textY = 10; // 上端から少し下
 
-            // 1行で表示
-            const text = `EF:${metrics.ef}%  SV:${metrics.sv}ml  Ees:${metrics.ees}  Ea:${metrics.ea}`;
-            chart.ctx.fillText(text, textX, textY);
+            const line1 = `EF:${metrics.ef}%  SV:${metrics.sv}ml  Ees:${metrics.ees}  Ea:${metrics.ea}`;
+            const line2 = `EW:${metrics.ew}  PW:${metrics.pw}  Eff:${metrics.efficiency}%`;
+            chart.ctx.fillText(line1, textX, textY);
+            chart.ctx.fillText(line2, textX, textY + 14);
         }
     }
 }
