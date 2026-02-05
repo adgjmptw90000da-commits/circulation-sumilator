@@ -16,9 +16,12 @@ class App {
         this.balanceCurveToken = 0;
         this.balanceWorker = null;
         this.balanceCurvePendingKey = '';
+        this.resizeRaf = 0;
+        this.resizeObserver = null;
 
         this.initUI();
         this.bindEvents();
+        this.setupResizeObserver();
         this.updateControls();
         this.scheduleBalanceCurve();
 
@@ -88,8 +91,7 @@ class App {
 
         // リサイズ対応
         window.addEventListener('resize', () => {
-            this.chartManager.resize();
-            this.chartManager.update(this.simulator, this.getScaleSettings(), null, this.getWaveformVisibility(), this.balanceCurve);
+            this.handleResize();
         });
     }
 
@@ -114,6 +116,30 @@ class App {
         groups.forEach((group) => {
             group.classList.toggle('is-active', group.dataset.group === value);
         });
+    }
+
+    handleResize() {
+        if (this.resizeRaf) {
+            cancelAnimationFrame(this.resizeRaf);
+        }
+        this.resizeRaf = requestAnimationFrame(() => {
+            this.resizeRaf = 0;
+            this.chartManager.resize();
+            this.chartManager.update(this.simulator, this.getScaleSettings(), this.calculateMetrics(), this.getWaveformVisibility(), this.balanceCurve);
+        });
+    }
+
+    setupResizeObserver() {
+        if (!('ResizeObserver' in window)) return;
+        const targets = [
+            document.querySelector('.monitor-section'),
+            document.querySelector('.charts-grid')
+        ].filter(Boolean);
+        if (targets.length === 0) return;
+        this.resizeObserver = new ResizeObserver(() => {
+            this.handleResize();
+        });
+        targets.forEach((target) => this.resizeObserver.observe(target));
     }
 
     scheduleBalanceCurve() {

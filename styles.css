@@ -592,6 +592,99 @@ body {
         justify-content: flex-end;
     }
 }
+
+@media (max-width: 768px) {
+    .header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.75rem;
+        padding: 0.9rem 1rem;
+    }
+
+    .header h1 {
+        font-size: 1.1rem;
+    }
+
+    .controls {
+        width: 100%;
+        justify-content: flex-start;
+        gap: 0.5rem;
+    }
+
+    .controls .btn {
+        flex: 1 1 calc(50% - 0.5rem);
+        text-align: center;
+    }
+
+    .speed-control {
+        flex: 1 1 100%;
+        margin-left: 0;
+        width: 100%;
+    }
+
+    .speed-control input[type="range"] {
+        width: 100%;
+    }
+
+    .charts-area {
+        padding: 0.75rem;
+    }
+
+    .monitor-section {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .params-panel {
+        width: 100%;
+        max-height: 240px;
+    }
+
+    .vital-monitor {
+        flex-direction: column;
+        max-height: none;
+    }
+
+    .monitor-vitals {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid #333;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.35rem;
+        padding: 0.5rem;
+    }
+
+    .vital-item {
+        padding: 0.2rem 0.3rem;
+    }
+
+    .monitor-waveforms {
+        min-height: 240px;
+    }
+
+    .chart-container {
+        max-height: 360px;
+    }
+
+    .toggle-grid {
+        grid-template-columns: repeat(2, minmax(120px, 1fr));
+    }
+}
+
+@media (max-width: 540px) {
+    .controls .btn {
+        flex: 1 1 100%;
+    }
+
+    .monitor-vitals {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-grid {
+        grid-template-columns: 1fr;
+    }
+}
 /* Status bar */
 .status-bar {
     background: var(--bg-secondary);
