@@ -49,6 +49,8 @@ class CirculationSimulator {
         this.prevMitralValveOpen = false;
         this.prevMitralValveOpenForLVEDP = false;
         this.pendingLVEDPUpdate = false;
+        this.cycleMaxLVVolume = this.state.lvVolume;
+        this.cycleMaxLVPressure = this.state.lvPressure;
 
         // LA EDPVR反転モデル用：アンカーポイント
         this.laEdpvrAnchor = {
@@ -86,6 +88,8 @@ class CirculationSimulator {
         this.prevMitralValveOpen = false;
         this.prevMitralValveOpenForLVEDP = false;
         this.pendingLVEDPUpdate = false;
+        this.cycleMaxLVVolume = this.state.lvVolume;
+        this.cycleMaxLVPressure = this.state.lvPressure;
         // LA EDPVR反転モデル用：アンカーポイントをリセット
         this.laEdpvrAnchor = {
             volume: 30,
@@ -581,9 +585,11 @@ class CirculationSimulator {
         // 心周期位相の更新
         this.state.time += dt;
         this.state.cyclePhase += dt / timings.cycleDuration;
+        let cycleWrapped = false;
         if (this.state.cyclePhase >= 1) {
             this.state.cyclePhase -= 1;
             this.state.cycleCount++;
+            cycleWrapped = true;
         }
         const cycleTime = this.state.cyclePhase * timings.cycleDuration;
 
@@ -593,8 +599,7 @@ class CirculationSimulator {
         // === Step 2: フェーズ判定（圧関係ベース）===
         this.determineLVPhase();
 
-        // LVEDP更新のタイミング検出（僧帽弁閉鎖時）
-        this.pendingLVEDPUpdate = this.prevMitralValveOpenForLVEDP && !this.mitralValveOpen;
+        // LVEDPは心周期のEDV時点で更新するため、弁閉鎖トリガーは使用しない
         this.prevMitralValveOpenForLVEDP = this.mitralValveOpen;
 
         // === Step 3: 流量計算（前回の圧を使用）===
@@ -608,7 +613,6 @@ class CirculationSimulator {
 
         // === Step 4: 容量更新 ===
         this.state.laVolume += (venousFlow - mitralFlow) * dt;
-        this.state.laVolume = Math.max(this.state.laVolume, this.params.laV0 + 0.1);
 
         this.state.lvVolume += (mitralFlow - aorticFlow) * dt;
         this.state.lvVolume = Math.max(this.state.lvVolume, this.params.lvV0 + 0.1);
@@ -659,10 +663,13 @@ class CirculationSimulator {
             this.state.laPressure = laEDPVRPressure;
         }
 
-        // LVEDPは僧帽弁閉鎖の瞬間に記録
-        if (this.pendingLVEDPUpdate) {
-            this.state.lvEDP = this.state.lvPressure;
-            this.pendingLVEDPUpdate = false;
+        if (cycleWrapped) {
+            this.state.lvEDP = this.cycleMaxLVPressure;
+            this.cycleMaxLVVolume = this.state.lvVolume;
+            this.cycleMaxLVPressure = this.state.lvPressure;
+        } else if (this.state.lvVolume > this.cycleMaxLVVolume) {
+            this.cycleMaxLVVolume = this.state.lvVolume;
+            this.cycleMaxLVPressure = this.state.lvPressure;
         }
 
         // デバッグ: E > Ees のチェック（閾値なし）

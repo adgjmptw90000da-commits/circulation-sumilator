@@ -17,7 +17,7 @@ const DEFAULT_PARAMS = {
     laEes: 0.25,      // mmHg/mL
     laAlpha: 0.12,    // mmHg
     laBeta: 0.05,     // 1/mL
-    laV0: 4,          // mL
+    laV0: 0,          // mL
     laContractionEnabled: true, // 左房収縮の有無
 
     // 僧帽弁

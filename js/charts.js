@@ -454,7 +454,7 @@ class ChartManager {
     /**
      * 循環平衡（CO/VR）曲線を描画
      */
-    drawBalanceChart(chart, simulator, scaleSettings = {}) {
+    drawBalanceChart(chart, simulator, scaleSettings = {}, balanceCurve = null) {
         if (!chart) return;
         const { ctx, width, height } = chart;
         const state = simulator.getState();
@@ -478,28 +478,42 @@ class ChartManager {
         const meanLAP = mean(recentLAP, state.laPressure);
         const meanCO = mean(recentAoFlow, 0) * 60 / 1000; // L/min
 
-        const ees = Math.max(0.1, params.lvEes);
-        const v0 = params.lvV0;
-        const alpha = Math.max(0.001, params.lvAlpha);
-        const beta = Math.max(0.001, params.lvBeta);
-        const svrMmHg = params.svr / 1333;
-        const kAfterload = svrMmHg * ((params.hr || 75) / 60);
-
         const steps = 80;
         const vrPoints = [];
         const coPoints = [];
         const yMax = Math.max(4, scaleSettings.balanceYMax || 12);
+        const vrAt = (pra) => Math.max(0, (pmsf - pra) / rv) * 60 / 1000;
+
         for (let i = 0; i <= steps; i++) {
             const pra = xMin + (xMax - xMin) * i / steps;
-            const vr = Math.max(0, (pmsf - pra) / rv) * 60 / 1000; // L/min
-            const p = Math.max(0, pra);
-            const edv = v0 + Math.log(p / alpha + 1) / beta;
-            const map = (kAfterload * (edv - v0)) / (1 + kAfterload / ees);
-            const esv = v0 + Math.max(0, map) / ees;
-            const sv = Math.max(0, edv - esv);
-            const co = sv * (params.hr || 75) / 1000; // L/min
-            vrPoints.push({ x: pra, y: vr });
-            coPoints.push({ x: pra, y: co });
+            vrPoints.push({ x: pra, y: vrAt(pra) });
+        }
+
+        if (Array.isArray(balanceCurve) && balanceCurve.length > 1) {
+            balanceCurve.forEach((pt) => {
+                if (pt.x >= xMin && pt.x <= xMax) {
+                    coPoints.push({ x: pt.x, y: pt.y });
+                }
+            });
+        }
+
+        if (coPoints.length === 0) {
+            const ees = Math.max(0.1, params.lvEes);
+            const v0 = params.lvV0;
+            const alpha = Math.max(0.001, params.lvAlpha);
+            const beta = Math.max(0.001, params.lvBeta);
+            const svrMmHg = params.svr / 1333;
+            const kAfterload = svrMmHg * ((params.hr || 75) / 60);
+            for (let i = 0; i <= steps; i++) {
+                const pra = xMin + (xMax - xMin) * i / steps;
+                const p = Math.max(0, pra);
+                const edv = v0 + Math.log(p / alpha + 1) / beta;
+                const map = (kAfterload * (edv - v0)) / (1 + kAfterload / ees);
+                const esv = v0 + Math.max(0, map) / ees;
+                const sv = Math.max(0, edv - esv);
+                const co = sv * (params.hr || 75) / 1000; // L/min
+                coPoints.push({ x: pra, y: co });
+            }
         }
 
         this.drawGrid(chart, xMin, xMax, 0, yMax);
@@ -527,17 +541,17 @@ class ChartManager {
         ctx.stroke();
 
         let eq = { x: meanLAP, y: meanCO };
-        for (let i = 1; i < vrPoints.length; i++) {
-            const d0 = coPoints[i - 1].y - vrPoints[i - 1].y;
-            const d1 = coPoints[i].y - vrPoints[i].y;
+        for (let i = 1; i < coPoints.length; i++) {
+            const d0 = coPoints[i - 1].y - vrAt(coPoints[i - 1].x);
+            const d1 = coPoints[i].y - vrAt(coPoints[i].x);
             if (d0 === 0) {
-                eq = { x: vrPoints[i - 1].x, y: vrPoints[i - 1].y };
+                eq = { x: coPoints[i - 1].x, y: coPoints[i - 1].y };
                 break;
             }
             if (d0 * d1 < 0) {
                 const t = d0 / (d0 - d1);
-                const x = vrPoints[i - 1].x + t * (vrPoints[i].x - vrPoints[i - 1].x);
-                const y = vrPoints[i - 1].y + t * (vrPoints[i].y - vrPoints[i - 1].y);
+                const x = coPoints[i - 1].x + t * (coPoints[i].x - coPoints[i - 1].x);
+                const y = coPoints[i - 1].y + t * (coPoints[i].y - coPoints[i - 1].y);
                 eq = { x, y };
                 break;
             }
@@ -562,14 +576,6 @@ class ChartManager {
         ctx.arc(eqX, eqY, 4, 0, Math.PI * 2);
         ctx.fill();
 
-        const nowX = (meanLAP - xMin) / (xMax - xMin) * width;
-        const nowY = height - (meanCO / yMax) * height;
-        ctx.strokeStyle = '#ffffff';
-        ctx.lineWidth = 1;
-        ctx.beginPath();
-        ctx.arc(nowX, nowY, 4, 0, Math.PI * 2);
-        ctx.stroke();
-
         ctx.fillStyle = this.colors.text;
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'left';
@@ -590,7 +596,7 @@ class ChartManager {
     /**
      * すべてのチャートを更新
      */
-    update(simulator, scaleSettings, metrics = null, waveformVisibility = {}) {
+    update(simulator, scaleSettings, metrics = null, waveformVisibility = {}, balanceCurve = null) {
         const history = simulator.getHistory();
         const state = simulator.getState();
         const params = simulator.params;
@@ -768,14 +774,14 @@ class ChartManager {
             const textY = 10; // 上端から少し下
 
             const line1 = `EF:${metrics.ef}%  SV:${metrics.sv}ml  Ees:${metrics.ees}  Ea:${metrics.ea}`;
-            const line2 = `EW:${metrics.ew}  PW:${metrics.pw}  Eff:${metrics.efficiency}%`;
+            const line2 = `SW:${metrics.ew}  PE:${metrics.pw}  Eff:${metrics.efficiency}%`;
             chart.ctx.fillText(line1, textX, textY);
             chart.ctx.fillText(line2, textX, textY + 14);
         }
 
         // === 循環平衡（CO/VR） ===
         if (this.charts.balance) {
-            this.drawBalanceChart(this.charts.balance, simulator, scaleSettings);
+            this.drawBalanceChart(this.charts.balance, simulator, scaleSettings, balanceCurve);
         }
     }
 }

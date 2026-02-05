@@ -10,13 +10,20 @@ class App {
         this.speed = 1;
         this.animationId = null;
         this.lastFrameTime = 0;
+        this.balanceCurve = null;
+        this.balanceCurveKey = '';
+        this.balanceCurveTimer = null;
+        this.balanceCurveToken = 0;
+        this.balanceWorker = null;
+        this.balanceCurvePendingKey = '';
 
         this.initUI();
         this.bindEvents();
         this.updateControls();
+        this.scheduleBalanceCurve();
 
         // 初回描画
-        this.chartManager.update(this.simulator, this.getScaleSettings(), null, this.getWaveformVisibility());
+        this.chartManager.update(this.simulator, this.getScaleSettings(), null, this.getWaveformVisibility(), this.balanceCurve);
         this.updateStatus();
     }
 
@@ -82,7 +89,7 @@ class App {
         // リサイズ対応
         window.addEventListener('resize', () => {
             this.chartManager.resize();
-            this.chartManager.update(this.simulator, this.getScaleSettings(), null, this.getWaveformVisibility());
+            this.chartManager.update(this.simulator, this.getScaleSettings(), null, this.getWaveformVisibility(), this.balanceCurve);
         });
     }
 
@@ -96,7 +103,7 @@ class App {
         section.classList.toggle('params-hidden', hidden);
         button.textContent = hidden ? '📋 パラメータ表示' : '📋 パラメータ';
         this.chartManager.resize();
-        this.chartManager.update(this.simulator, this.getScaleSettings(), this.calculateMetrics(), this.getWaveformVisibility());
+        this.chartManager.update(this.simulator, this.getScaleSettings(), this.calculateMetrics(), this.getWaveformVisibility(), this.balanceCurve);
     }
 
     updateParamGroupVisibility() {
@@ -107,6 +114,37 @@ class App {
         groups.forEach((group) => {
             group.classList.toggle('is-active', group.dataset.group === value);
         });
+    }
+
+    scheduleBalanceCurve() {
+        const scale = this.getScaleSettings();
+        const key = JSON.stringify({
+            params: this.simulator.params,
+            balanceXMax: scale.balanceXMax
+        });
+        if (this.balanceCurve && this.balanceCurveKey === key) return;
+        if (this.balanceCurveTimer) clearTimeout(this.balanceCurveTimer);
+        const token = ++this.balanceCurveToken;
+        this.balanceCurveTimer = setTimeout(() => {
+            if (!this.balanceWorker) {
+                this.balanceWorker = new Worker('js/balance-worker.js');
+                this.balanceWorker.addEventListener('message', (e) => {
+                    if (!e.data || !Array.isArray(e.data.results)) return;
+                    if (e.data.token !== this.balanceCurveToken) return;
+                    this.balanceCurve = e.data.results;
+                    this.balanceCurveKey = this.balanceCurvePendingKey;
+                    this.chartManager.update(this.simulator, this.getScaleSettings(), this.calculateMetrics(), this.getWaveformVisibility(), this.balanceCurve);
+                });
+            }
+            this.balanceCurvePendingKey = key;
+            this.balanceWorker.postMessage({
+                token,
+                params: this.simulator.params,
+                xMax: scale.balanceXMax,
+                points: 25,
+                beats: 6
+            });
+        }, 150);
     }
 
     bindParamInputs() {
@@ -146,6 +184,7 @@ class App {
                     const value = parseFloat(e.target.value);
                     if (!isNaN(value)) {
                         this.simulator.updateParams({ [paramKey]: value });
+                        this.redrawNow();
                     }
                 });
             }
@@ -156,6 +195,7 @@ class App {
             mrSelect.addEventListener('change', (e) => {
                 const enabled = e.target.value === 'on';
                 this.simulator.updateParams({ mrEnabled: enabled });
+                this.redrawNow();
             });
         }
 
@@ -164,6 +204,7 @@ class App {
             msSelect.addEventListener('change', (e) => {
                 const enabled = e.target.value === 'on';
                 this.simulator.updateParams({ msEnabled: enabled });
+                this.redrawNow();
             });
         }
 
@@ -172,6 +213,7 @@ class App {
             arSelect.addEventListener('change', (e) => {
                 const enabled = e.target.value === 'on';
                 this.simulator.updateParams({ arEnabled: enabled });
+                this.redrawNow();
             });
         }
 
@@ -180,6 +222,7 @@ class App {
             asSelect.addEventListener('change', (e) => {
                 const enabled = e.target.value === 'on';
                 this.simulator.updateParams({ asEnabled: enabled });
+                this.redrawNow();
             });
         }
 
@@ -188,6 +231,7 @@ class App {
             laContractionSelect.addEventListener('change', (e) => {
                 const enabled = e.target.value === 'on';
                 this.simulator.updateParams({ laContractionEnabled: enabled });
+                this.redrawNow();
             });
         }
     }
@@ -320,7 +364,7 @@ class App {
 
         // 描画（60fps程度に抑制）
         const metrics = this.calculateMetrics();
-        this.chartManager.update(this.simulator, this.getScaleSettings(), metrics, this.getWaveformVisibility());
+        this.chartManager.update(this.simulator, this.getScaleSettings(), metrics, this.getWaveformVisibility(), this.balanceCurve);
         this.updateStatus();
 
         this.animationId = requestAnimationFrame(() => this.animate());
@@ -376,8 +420,9 @@ class App {
     }
 
     redrawNow() {
+        this.scheduleBalanceCurve();
         const metrics = this.calculateMetrics();
-        this.chartManager.update(this.simulator, this.getScaleSettings(), metrics, this.getWaveformVisibility());
+        this.chartManager.update(this.simulator, this.getScaleSettings(), metrics, this.getWaveformVisibility(), this.balanceCurve);
     }
 
     resetScaleInputs() {
