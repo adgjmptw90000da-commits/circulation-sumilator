@@ -49,13 +49,18 @@ class ChartManager {
         // 高DPI対応
         const rect = canvas.getBoundingClientRect();
         const isMonitor = !!canvas.closest('.monitor-waveforms');
-        if (isMonitor && this.monitorBaseWidth == null) {
-            this.monitorBaseWidth = rect.width;
+        const displayRect = isMonitor && canvas.parentElement
+            ? canvas.parentElement.getBoundingClientRect()
+            : rect;
+        if (isMonitor) {
+            if (this.monitorBaseWidth == null) {
+                this.monitorBaseWidth = Math.max(displayRect.width, this.monitorMinWidth);
+            } else if (displayRect.width > this.monitorBaseWidth) {
+                this.monitorBaseWidth = displayRect.width;
+            }
         }
-        const baseWidth = isMonitor
-            ? Math.max(this.monitorBaseWidth || rect.width, this.monitorMinWidth)
-            : rect.width;
-        const targetWidth = isMonitor ? Math.max(rect.width, baseWidth) : rect.width;
+        const baseWidth = isMonitor ? (this.monitorBaseWidth || displayRect.width) : displayRect.width;
+        const targetWidth = isMonitor ? Math.max(displayRect.width, baseWidth) : displayRect.width;
         const dpr = window.devicePixelRatio || 1;
         canvas.width = Math.max(1, targetWidth * dpr);
         canvas.height = Math.max(1, rect.height * dpr);
@@ -64,7 +69,14 @@ class ChartManager {
         canvas.style.width = targetWidth + 'px';
         canvas.style.height = rect.height + 'px';
 
-        return { canvas, ctx, width: targetWidth, height: rect.height };
+        return {
+            canvas,
+            ctx,
+            width: displayRect.width,
+            height: rect.height,
+            displayWidth: displayRect.width,
+            isMonitor
+        };
     }
 
     /**
@@ -79,7 +91,8 @@ class ChartManager {
      */
     drawSweepGrid(chart, yMin, yMax) {
         if (!chart) return;
-        const { ctx, width, height } = chart;
+        const { ctx, height } = chart;
+        const { width } = this.getSweepConfig(chart);
 
         ctx.strokeStyle = this.colors.grid;
         ctx.lineWidth = 0.5;
@@ -169,10 +182,12 @@ class ChartManager {
      */
     drawSweepLine(chart, timeData, yData, currentTime, yMin, yMax, color, lineWidth = 1.5, filled = false) {
         if (!chart || timeData.length < 2) return;
-        const { ctx, width, height } = chart;
+        const { ctx, height } = chart;
+        const { width, duration } = this.getSweepConfig(chart);
+        const startTime = currentTime - duration;
 
         // 現在位置（0-1の範囲）
-        const sweepPhase = (currentTime % this.sweepDuration) / this.sweepDuration;
+        const sweepPhase = (currentTime % duration) / duration;
 
         // ベースライン(0)のY座標
         const baselineY = height - ((0 - yMin) / (yMax - yMin)) * height;
@@ -183,10 +198,12 @@ class ChartManager {
             ctx.beginPath();
             let started = false;
             let lastX = 0;
+            let lastPhase = null;
 
             for (let i = 0; i < timeData.length; i++) {
                 const t = timeData[i];
-                const phase = (t % this.sweepDuration) / this.sweepDuration;
+                if (t < startTime) continue;
+                const phase = (t % duration) / duration;
                 const x = phase * width;
                 const y = height - ((yData[i] - yMin) / (yMax - yMin)) * height;
 
@@ -195,8 +212,7 @@ class ChartManager {
                     ctx.lineTo(x, y);
                     started = true;
                 } else {
-                    const prevPhase = (timeData[i - 1] % this.sweepDuration) / this.sweepDuration;
-                    if (Math.abs(phase - prevPhase) > 0.5) {
+                    if (lastPhase != null && Math.abs(phase - lastPhase) > 0.5) {
                         ctx.lineTo(lastX, baselineY);
                         ctx.closePath();
                         ctx.fill();
@@ -207,6 +223,7 @@ class ChartManager {
                         ctx.lineTo(x, y);
                     }
                 }
+                lastPhase = phase;
                 lastX = x;
             }
             if (started) {
@@ -221,10 +238,12 @@ class ChartManager {
         ctx.lineWidth = lineWidth;
         ctx.beginPath();
         let started = false;
+        let lastPhase = null;
 
         for (let i = 0; i < timeData.length; i++) {
             const t = timeData[i];
-            const phase = (t % this.sweepDuration) / this.sweepDuration;
+            if (t < startTime) continue;
+            const phase = (t % duration) / duration;
             const x = phase * width;
             const y = height - ((yData[i] - yMin) / (yMax - yMin)) * height;
 
@@ -235,8 +254,7 @@ class ChartManager {
                 ctx.moveTo(x, y);
                 started = true;
             } else {
-                const prevPhase = (timeData[i - 1] % this.sweepDuration) / this.sweepDuration;
-                if (Math.abs(phase - prevPhase) > 0.5) {
+                if (lastPhase != null && Math.abs(phase - lastPhase) > 0.5) {
                     ctx.stroke();
                     ctx.beginPath();
                     ctx.moveTo(x, y);
@@ -244,6 +262,7 @@ class ChartManager {
                     ctx.lineTo(x, y);
                 }
             }
+            lastPhase = phase;
         }
         ctx.stroke();
     }
@@ -253,9 +272,10 @@ class ChartManager {
      */
     drawSweepCursor(chart, currentTime) {
         if (!chart) return;
-        const { ctx, width, height } = chart;
+        const { ctx, height } = chart;
+        const { width, duration } = this.getSweepConfig(chart);
 
-        const sweepPhase = (currentTime % this.sweepDuration) / this.sweepDuration;
+        const sweepPhase = (currentTime % duration) / duration;
         const cursorX = sweepPhase * width;
 
         // 黒い空白（ギャップ）として描画
@@ -303,6 +323,15 @@ class ChartManager {
             const value = xMin + (xMax - xMin) * i / 4;
             ctx.fillText(value.toFixed(0), x + 2, height - 2);
         }
+    }
+
+    getSweepConfig(chart) {
+        const width = chart?.displayWidth ?? chart?.width ?? 0;
+        if (!chart || !chart.isMonitor || !this.monitorBaseWidth || width <= 0) {
+            return { width: chart?.width ?? width, duration: this.sweepDuration };
+        }
+        const ratio = Math.max(0.1, width / this.monitorBaseWidth);
+        return { width, duration: this.sweepDuration * ratio };
     }
 
     /**
