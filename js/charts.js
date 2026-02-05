@@ -24,6 +24,8 @@ class ChartManager {
             espvr: '#ff00ff'  // マゼンタ（ESPVR）
         };
         this.sweepDuration = SIM_CONFIG.displayDuration || 5.7;  // スイープ表示の時間幅（秒）
+        this.monitorMinWidth = 720;
+        this.monitorBaseWidth = null;
         this.initCharts();
     }
 
@@ -46,15 +48,23 @@ class ChartManager {
 
         // 高DPI対応
         const rect = canvas.getBoundingClientRect();
+        const isMonitor = !!canvas.closest('.monitor-waveforms');
+        if (isMonitor && this.monitorBaseWidth == null) {
+            this.monitorBaseWidth = rect.width;
+        }
+        const baseWidth = isMonitor
+            ? Math.max(this.monitorBaseWidth || rect.width, this.monitorMinWidth)
+            : rect.width;
+        const targetWidth = isMonitor ? Math.max(rect.width, baseWidth) : rect.width;
         const dpr = window.devicePixelRatio || 1;
-        canvas.width = Math.max(1, rect.width * dpr);
+        canvas.width = Math.max(1, targetWidth * dpr);
         canvas.height = Math.max(1, rect.height * dpr);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.scale(dpr, dpr);
-        canvas.style.width = rect.width + 'px';
+        canvas.style.width = targetWidth + 'px';
         canvas.style.height = rect.height + 'px';
 
-        return { canvas, ctx, width: rect.width, height: rect.height };
+        return { canvas, ctx, width: targetWidth, height: rect.height };
     }
 
     /**
