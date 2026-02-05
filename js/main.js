@@ -25,14 +25,20 @@ class App {
         this.syncParamsToUI();
         this.syncSpeedFromUI();
         this.applyPressureVitalVisibility();
+        this.updateParamGroupVisibility();
     }
 
     bindEvents() {
         // コントロールボタン
         document.getElementById('startBtn').addEventListener('click', () => this.toggleRun());
+        document.getElementById('toggleParamsBtn').addEventListener('click', () => this.toggleParamsPanel());
         document.getElementById('openSettingsBtn').addEventListener('click', () => this.openSettingsModal());
         document.getElementById('resetBtn').addEventListener('click', () => this.reset());
         document.getElementById('closeSettingsBtn').addEventListener('click', () => this.closeSettingsModal());
+        const paramGroupSelect = document.getElementById('paramGroupSelect');
+        if (paramGroupSelect) {
+            paramGroupSelect.addEventListener('change', () => this.updateParamGroupVisibility());
+        }
 
         const settingsModal = document.getElementById('settingsModal');
         settingsModal.addEventListener('click', (e) => {
@@ -77,6 +83,29 @@ class App {
         window.addEventListener('resize', () => {
             this.chartManager.resize();
             this.chartManager.update(this.simulator, this.getScaleSettings(), null, this.getWaveformVisibility());
+        });
+    }
+
+    toggleParamsPanel() {
+        const panel = document.getElementById('paramsPanel');
+        const section = document.querySelector('.monitor-section');
+        const button = document.getElementById('toggleParamsBtn');
+        if (!panel || !section || !button) return;
+
+        const hidden = panel.classList.toggle('is-hidden');
+        section.classList.toggle('params-hidden', hidden);
+        button.textContent = hidden ? '📋 パラメータ表示' : '📋 パラメータ';
+        this.chartManager.resize();
+        this.chartManager.update(this.simulator, this.getScaleSettings(), this.calculateMetrics(), this.getWaveformVisibility());
+    }
+
+    updateParamGroupVisibility() {
+        const select = document.getElementById('paramGroupSelect');
+        const groups = document.querySelectorAll('.param-group');
+        if (!select || groups.length === 0) return;
+        const value = select.value;
+        groups.forEach((group) => {
+            group.classList.toggle('is-active', group.dataset.group === value);
         });
     }
 
@@ -235,7 +264,9 @@ class App {
             monitorPressureLaMax: getVal('monitor-pressure-la-max', 40),
             flowMax: getVal('scale-flow-max', 1200),
             flowMin: getVal('scale-flow-min', -200),
-            elastanceMax: getVal('scale-elastance-max', 3)
+            elastanceMax: getVal('scale-elastance-max', 3),
+            balanceXMax: getVal('balance-x-max', 20),
+            balanceYMax: getVal('balance-y-max', 12)
         };
     }
 
@@ -359,7 +390,9 @@ class App {
             'monitor-pressure-la-max',
             'scale-flow-max',
             'scale-flow-min',
-            'scale-elastance-max'
+            'scale-elastance-max',
+            'balance-x-max',
+            'balance-y-max'
         ];
 
         scaleIds.forEach((id) => {

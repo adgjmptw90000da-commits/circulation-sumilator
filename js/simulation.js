@@ -383,8 +383,8 @@ class CirculationSimulator {
      * 静脈流入計算（リザーバーモデル）
      */
     calcVenousInflow() {
-        // 静脈圧を動的に計算: Pv = Pv0 + (Vv - Vv0) / Cv
-        const vvPressure = this.params.pv + (this.state.vvVolume - this.params.vv0) / this.params.cv;
+        // Pmsf固定モード: 静脈圧をPvに固定（SVR変化でVR曲線が動かない前提）
+        const vvPressure = this.params.pv;
         this.state.vvPressure = Math.max(0, vvPressure);
 
         const deltaP = this.state.vvPressure - this.state.laPressure;

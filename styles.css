@@ -235,11 +235,53 @@ body {
 
 /* Parameters panel */
 .params-panel {
-    width: 260px;
+    width: 300px;
     background: var(--bg-secondary);
     padding: 1rem;
+    max-height: 400px;
     overflow-y: auto;
-    border-right: 1px solid var(--border);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.params-panel.is-hidden {
+    display: none;
+}
+
+.param-select {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.8rem;
+}
+
+.param-select label {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.param-select select {
+    flex: 1;
+    padding: 0.35rem 0.5rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text-primary);
+    font-size: 0.85rem;
+}
+
+.param-select select:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.param-group {
+    display: none;
+}
+
+.param-group.is-active {
+    display: block;
 }
 
 .params-panel h2 {
@@ -256,26 +298,8 @@ body {
     overflow: hidden;
 }
 
-.param-section summary {
-    list-style: none;
-    cursor: pointer;
-    padding: 0.5rem 0.6rem;
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    background: var(--bg-tertiary);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    letter-spacing: 0.02em;
-}
-
-.param-section summary:hover {
-    background: #1a4a7a;
-    color: var(--text-primary);
-}
-
-.param-section[open] summary {
-    color: var(--text-primary);
+.param-section-header {
+    display: none;
 }
 
 .param-section summary::-webkit-details-marker {
@@ -358,13 +382,25 @@ body {
     overflow-y: auto;
 }
 
+/* Monitor + Params layout */
+.monitor-section {
+    display: grid;
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: 1rem;
+    align-items: stretch;
+    margin-bottom: 1rem;
+}
+
+.monitor-section.params-hidden {
+    grid-template-columns: 1fr;
+}
+
 /* Vital Monitor Section */
 .vital-monitor {
     display: flex;
     background: #000;
     border-radius: 8px;
     border: 2px solid #333;
-    margin-bottom: 1rem;
     overflow: hidden;
     max-height: 400px;
 }
@@ -482,7 +518,7 @@ body {
 /* Charts Grid */
 .charts-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1rem;
 }
 
@@ -531,6 +567,31 @@ body {
     font-size: 0.7rem;
 }
 
+@media (max-width: 1200px) {
+    .monitor-section {
+        grid-template-columns: 1fr;
+    }
+
+    .params-panel {
+        width: auto;
+        max-height: 260px;
+    }
+
+    .charts-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 900px) {
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .controls {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+    }
+}
 /* Status bar */
 .status-bar {
     background: var(--bg-secondary);

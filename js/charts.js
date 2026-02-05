@@ -14,6 +14,9 @@ class ChartManager {
             vein: '#00ffff',  // 水色（静脈）
             mitral: '#ff8c00',// オレンジ（僧帽弁フロー）
             aortic: '#ff4444',// 赤（大動脈弁フロー）
+            coCurve: '#ff6b6b', // CO曲線
+            vrCurve: '#5c7cfa', // 静脈還流曲線
+            eqPoint: '#ffd43b', // 平衡点
             grid: '#333333',
             text: '#888888',
             cursor: 'rgba(255, 255, 255, 0.5)',
@@ -32,6 +35,7 @@ class ChartManager {
         this.charts.flow = this.setupCanvas('chart-flow');
         this.charts.laPV = this.setupCanvas('chart-la-pv');
         this.charts.lvPV = this.setupCanvas('chart-lv-pv');
+        this.charts.balance = this.setupCanvas('chart-balance');
     }
 
     setupCanvas(id) {
@@ -448,6 +452,142 @@ class ChartManager {
     }
 
     /**
+     * 循環平衡（CO/VR）曲線を描画
+     */
+    drawBalanceChart(chart, simulator, scaleSettings = {}) {
+        if (!chart) return;
+        const { ctx, width, height } = chart;
+        const state = simulator.getState();
+        const params = simulator.params;
+        const history = simulator.getHistory();
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, width, height);
+
+        const rv = Math.max(1e-6, params.rv);
+        // VR曲線はSVR変化で動かさない前提（Pmsfは固定）
+        const pmsf = Math.max(0, params.pv);
+        const xMin = 0;
+        const xMax = Math.max(5, scaleSettings.balanceXMax || 20);
+
+        const cycleDuration = 60 / (params.hr || 75);
+        const samplesPerCycle = Math.max(2, Math.floor(cycleDuration / SIM_CONFIG.dt));
+        const recentLAP = history.laPressure.slice(-samplesPerCycle);
+        const recentAoFlow = history.aorticFlow.slice(-samplesPerCycle);
+        const mean = (arr, fallback = 0) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : fallback);
+        const meanLAP = mean(recentLAP, state.laPressure);
+        const meanCO = mean(recentAoFlow, 0) * 60 / 1000; // L/min
+
+        const ees = Math.max(0.1, params.lvEes);
+        const v0 = params.lvV0;
+        const alpha = Math.max(0.001, params.lvAlpha);
+        const beta = Math.max(0.001, params.lvBeta);
+        const svrMmHg = params.svr / 1333;
+        const kAfterload = svrMmHg * ((params.hr || 75) / 60);
+
+        const steps = 80;
+        const vrPoints = [];
+        const coPoints = [];
+        const yMax = Math.max(4, scaleSettings.balanceYMax || 12);
+        for (let i = 0; i <= steps; i++) {
+            const pra = xMin + (xMax - xMin) * i / steps;
+            const vr = Math.max(0, (pmsf - pra) / rv) * 60 / 1000; // L/min
+            const p = Math.max(0, pra);
+            const edv = v0 + Math.log(p / alpha + 1) / beta;
+            const map = (kAfterload * (edv - v0)) / (1 + kAfterload / ees);
+            const esv = v0 + Math.max(0, map) / ees;
+            const sv = Math.max(0, edv - esv);
+            const co = sv * (params.hr || 75) / 1000; // L/min
+            vrPoints.push({ x: pra, y: vr });
+            coPoints.push({ x: pra, y: co });
+        }
+
+        this.drawGrid(chart, xMin, xMax, 0, yMax);
+
+        ctx.strokeStyle = this.colors.vrCurve;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        vrPoints.forEach((pt, idx) => {
+            const x = (pt.x - xMin) / (xMax - xMin) * width;
+            const y = height - (pt.y / yMax) * height;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        ctx.strokeStyle = this.colors.coCurve;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        coPoints.forEach((pt, idx) => {
+            const x = (pt.x - xMin) / (xMax - xMin) * width;
+            const y = height - (pt.y / yMax) * height;
+            if (idx === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+
+        let eq = { x: meanLAP, y: meanCO };
+        for (let i = 1; i < vrPoints.length; i++) {
+            const d0 = coPoints[i - 1].y - vrPoints[i - 1].y;
+            const d1 = coPoints[i].y - vrPoints[i].y;
+            if (d0 === 0) {
+                eq = { x: vrPoints[i - 1].x, y: vrPoints[i - 1].y };
+                break;
+            }
+            if (d0 * d1 < 0) {
+                const t = d0 / (d0 - d1);
+                const x = vrPoints[i - 1].x + t * (vrPoints[i].x - vrPoints[i - 1].x);
+                const y = vrPoints[i - 1].y + t * (vrPoints[i].y - vrPoints[i - 1].y);
+                eq = { x, y };
+                break;
+            }
+        }
+
+        const eqX = (eq.x - xMin) / (xMax - xMin) * width;
+        const eqY = height - (eq.y / yMax) * height;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+        ctx.beginPath();
+        ctx.moveTo(eqX, height);
+        ctx.lineTo(eqX, eqY);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, eqY);
+        ctx.lineTo(eqX, eqY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = this.colors.eqPoint;
+        ctx.beginPath();
+        ctx.arc(eqX, eqY, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        const nowX = (meanLAP - xMin) / (xMax - xMin) * width;
+        const nowY = height - (meanCO / yMax) * height;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(nowX, nowY, 4, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = this.colors.text;
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('LAP (mmHg)', 4, height - 4);
+        ctx.save();
+        ctx.translate(8, 12);
+        ctx.rotate(-Math.PI / 2);
+        ctx.fillText('CO / VR (L/min)', 0, 0);
+        ctx.restore();
+
+        ctx.textAlign = 'right';
+        ctx.fillStyle = this.colors.vrCurve;
+        ctx.fillText('VR', width - 6, 12);
+        ctx.fillStyle = this.colors.coCurve;
+        ctx.fillText('CO', width - 6, 24);
+    }
+
+    /**
      * すべてのチャートを更新
      */
     update(simulator, scaleSettings, metrics = null, waveformVisibility = {}) {
@@ -631,6 +771,11 @@ class ChartManager {
             const line2 = `EW:${metrics.ew}  PW:${metrics.pw}  Eff:${metrics.efficiency}%`;
             chart.ctx.fillText(line1, textX, textY);
             chart.ctx.fillText(line2, textX, textY + 14);
+        }
+
+        // === 循環平衡（CO/VR） ===
+        if (this.charts.balance) {
+            this.drawBalanceChart(this.charts.balance, simulator, scaleSettings);
         }
     }
 }
