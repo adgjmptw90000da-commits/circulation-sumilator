@@ -74,6 +74,8 @@ const INITIAL_STATE = {
     lvPressure: 8,   // mmHg
     lvElastance: 0,  // mmHg/mL
     lvEDP: 8,        // mmHg（拡張末期圧）
+    lvESP: 8,        // mmHg（収縮末期圧）
+    lvESPTime: 0,    // sec（収縮末期圧の記録時刻）
 
     // 静脈リザーバー
     vvVolume: 400,   // mL（静脈容量）

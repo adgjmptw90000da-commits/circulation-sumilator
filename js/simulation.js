@@ -49,6 +49,7 @@ class CirculationSimulator {
         this.prevMitralValveOpen = false;
         this.prevMitralValveOpenForLVEDP = false;
         this.pendingLVEDPUpdate = false;
+        this.prevAorticValveOpen = false;
         this.cycleMaxLVVolume = this.state.lvVolume;
         this.cycleMaxLVPressure = this.state.lvPressure;
 
@@ -88,6 +89,7 @@ class CirculationSimulator {
         this.prevMitralValveOpen = false;
         this.prevMitralValveOpenForLVEDP = false;
         this.pendingLVEDPUpdate = false;
+        this.prevAorticValveOpen = false;
         this.cycleMaxLVVolume = this.state.lvVolume;
         this.cycleMaxLVPressure = this.state.lvPressure;
         // LA EDPVR反転モデル用：アンカーポイントをリセット
@@ -148,18 +150,36 @@ class CirculationSimulator {
      * 心周期タイミング（収縮・弛緩のタイミングのみ）
      */
     getCycleTimings() {
-        const cycleDuration = 60 / this.params.hr;
+        const hr = Math.max(30, this.params.hr || 75);
+        const cycleDuration = 60 / hr;
+        const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+        const lerp = (x, x0, y0, x1, y1) => {
+            if (x1 === x0) return y0;
+            const t = (x - x0) / (x1 - x0);
+            return y0 + (y1 - y0) * t;
+        };
 
-        // 左室：収縮・弛緩の時間設定
-        const lvContractionDuration = 0.30;  // 収縮期間（ここでEesに到達）
-        const lvRelaxationDuration = 0.15;   // 能動的弛緩期間
+        // 左室：収縮期はHR上昇で短縮、拡張期はより大きく短縮
+        const lvSystole = clamp(lerp(hr, 65, 0.27, 200, 0.16), 0.16, 0.30);
+        const diastole = Math.max(0.05, cycleDuration - lvSystole);
+        const lvContractionDuration = lvSystole;
+        let lvRelaxationDuration = clamp(diastole * 0.25, 0.08, 0.18);
+        if (lvContractionDuration + lvRelaxationDuration > cycleDuration * 0.95) {
+            lvRelaxationDuration = Math.max(0.04, cycleDuration * 0.95 - lvContractionDuration);
+        }
 
-        // 左房：収縮・弛緩の時間設定
-        const laContractionDuration = 0.10;
-        const laRelaxationDuration = 0.08;
+        // 左房：拡張期の短縮に追従して時間を調整
+        let laContractionDuration = clamp(diastole * 0.20, 0.06, 0.12);
+        let laRelaxationDuration = clamp(diastole * 0.15, 0.05, 0.10);
+        const prInterval = this.params.prInterval;
+        if (prInterval > 0) {
+            laContractionDuration = Math.min(laContractionDuration, prInterval * 0.9);
+            laContractionDuration = Math.max(0.03, laContractionDuration);
+        }
+
         // PR間隔 = P波開始（左房収縮開始）からQRS開始までの時間
         // QRSは時刻0なので、左房収縮は前の心周期末（cycleDuration - prInterval）に開始
-        const laContractionStart = cycleDuration - this.params.prInterval;
+        const laContractionStart = cycleDuration - prInterval;
 
         return {
             cycleDuration,
@@ -443,39 +463,47 @@ class CirculationSimulator {
      * ECG波形を生成
      */
     generateECG(cycleTime, timings) {
-        const { cycleDuration, laContractionStart, laContractionDuration, lvContractionDuration } = timings;
-        let t = cycleTime;
+        const { laContractionStart, laContractionDuration, lvContractionDuration } = timings;
+        const t = cycleTime;
         let ecg = 0;
+
+        const raisedCosine = (phase) => 0.5 - 0.5 * Math.cos(2 * Math.PI * phase);
+        const gaussian = (phase, mu, sigma) => Math.exp(-0.5 * Math.pow((phase - mu) / sigma, 2));
+        const asymWave = (phase, risePortion = 0.4) => {
+            if (phase <= 0 || phase >= 1) return 0;
+            if (phase < risePortion) {
+                const p = phase / risePortion;
+                return Math.sin((Math.PI / 2) * p);
+            }
+            const p = (phase - risePortion) / (1 - risePortion);
+            return Math.cos((Math.PI / 2) * p);
+        };
 
         // P波（心房脱分極）
         if (this.params.laContractionEnabled) {
             const pWaveStart = laContractionStart;
-            const pWaveDuration = laContractionDuration * 0.8;
+            const pWaveDuration = Math.max(0.05, laContractionDuration * 0.9);
             if (t >= pWaveStart && t < pWaveStart + pWaveDuration) {
                 const phase = (t - pWaveStart) / pWaveDuration;
-                ecg += 0.25 * Math.sin(Math.PI * phase);
+                ecg += 0.18 * raisedCosine(phase);
             }
         }
 
         // QRS波（心室脱分極）
-        const qrsDuration = 0.08;
+        const qrsDuration = 0.09;
         if (t < qrsDuration) {
             const phase = t / qrsDuration;
-            if (phase < 0.15) {
-                ecg += -0.1 * Math.sin(Math.PI * phase / 0.15);
-            } else if (phase < 0.5) {
-                ecg += 1.0 * Math.sin(Math.PI * (phase - 0.15) / 0.35);
-            } else if (phase < 0.7) {
-                ecg += -0.2 * Math.sin(Math.PI * (phase - 0.5) / 0.2);
-            }
+            ecg += -0.15 * gaussian(phase, 0.18, 0.06); // Q
+            ecg += 1.2 * gaussian(phase, 0.45, 0.05);  // R
+            ecg += -0.25 * gaussian(phase, 0.75, 0.06); // S
         }
 
         // T波（心室再分極）
-        const tWaveStart = lvContractionDuration * 0.8;
-        const tWaveDuration = 0.16;
+        const tWaveStart = lvContractionDuration * 0.7;
+        const tWaveDuration = 0.2;
         if (t >= tWaveStart && t < tWaveStart + tWaveDuration) {
             const phase = (t - tWaveStart) / tWaveDuration;
-            ecg += 0.3 * Math.sin(Math.PI * phase);
+            ecg += 0.32 * asymWave(phase, 0.38);
         }
 
         return ecg;
@@ -598,6 +626,13 @@ class CirculationSimulator {
 
         // === Step 2: フェーズ判定（圧関係ベース）===
         this.determineLVPhase();
+
+        const aorticJustClosed = this.prevAorticValveOpen && !this.aorticValveOpen;
+        if (aorticJustClosed) {
+            this.state.lvESP = this.state.lvPressure;
+            this.state.lvESPTime = this.state.time;
+        }
+        this.prevAorticValveOpen = this.aorticValveOpen;
 
         // LVEDPは心周期のEDV時点で更新するため、弁閉鎖トリガーは使用しない
         this.prevMitralValveOpenForLVEDP = this.mitralValveOpen;

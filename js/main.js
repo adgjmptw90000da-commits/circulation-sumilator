@@ -608,7 +608,11 @@ class App {
 
         // Ea (mmHg/mL) = ESP / SV
         // ESPは簡易的に最大左室圧を使用
-        const esp = Math.max(...lvP);
+        const state = this.simulator.getState();
+        const espFromState = state.lvESPTime != null
+            && state.lvESP != null
+            && (state.time - state.lvESPTime) <= cycleDuration * 1.2;
+        const esp = espFromState ? state.lvESP : Math.max(...lvP);
         const ea = sv > 0 ? esp / sv : 0;
 
         // Ees (mmHg/mL) - パラメータから取得

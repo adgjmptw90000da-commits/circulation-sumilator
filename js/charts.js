@@ -286,7 +286,7 @@ class ChartManager {
     /**
      * グリッドを描画（PVループ用）
      */
-    drawGrid(chart, xMin, xMax, yMin, yMax, xLabel = '', yLabel = '') {
+    drawGrid(chart, xMin, xMax, yMin, yMax, xLabel = '', yLabel = '', showLabels = true) {
         if (!chart) return;
         const { ctx, width, height } = chart;
 
@@ -311,17 +311,35 @@ class ChartManager {
             ctx.stroke();
         }
 
-        // Y軸ラベル（縦軸）
-        ctx.fillStyle = '#666';
-        ctx.font = '10px sans-serif';
-        ctx.fillText(yMax.toFixed(0), 2, 12);
-        ctx.fillText(yMin.toFixed(0), 2, height - 2);
+        if (showLabels) {
+            // Y軸ラベル（縦軸）
+            ctx.fillStyle = '#666';
+            ctx.font = '10px sans-serif';
+            ctx.fillText(yMax.toFixed(0), 2, 12);
+            ctx.fillText(yMin.toFixed(0), 2, height - 2);
 
-        // X軸ラベル（横軸）
+            // X軸ラベル（横軸）
+            for (let i = 0; i <= 4; i++) {
+                const x = width * i / 4;
+                const value = xMin + (xMax - xMin) * i / 4;
+                ctx.fillText(value.toFixed(0), x + 2, height - 2);
+            }
+        }
+    }
+
+    drawGridLabels(chart, xMin, xMax, yMin, yMax) {
+        if (!chart) return;
+        const { ctx, width, height } = chart;
+        ctx.fillStyle = '#9aa0a6';
+        ctx.font = '10px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillText(yMax.toFixed(0), 2, 12);
+        ctx.fillText(yMin.toFixed(0), 2, height - 4);
         for (let i = 0; i <= 4; i++) {
             const x = width * i / 4;
             const value = xMin + (xMax - xMin) * i / 4;
-            ctx.fillText(value.toFixed(0), x + 2, height - 2);
+            ctx.fillText(value.toFixed(0), x + 2, height - 4);
         }
     }
 
@@ -346,7 +364,7 @@ class ChartManager {
         ctx.fillRect(0, 0, width, height);
 
         // グリッド
-        this.drawGrid(chart, 0, vMax, 0, pMax);
+        this.drawGrid(chart, 0, vMax, 0, pMax, '', '', false);
 
         // EDPVR曲線
         ctx.strokeStyle = this.colors.edpvr;
@@ -412,6 +430,9 @@ class ChartManager {
                 ctx.fill();
             }
         }
+
+        // 軸ラベルを最前面に描画
+        this.drawGridLabels(chart, 0, vMax, 0, pMax);
     }
 
     /**
@@ -427,7 +448,7 @@ class ChartManager {
         ctx.fillRect(0, 0, width, height);
 
         // グリッド
-        this.drawGrid(chart, 0, vMax, 0, pMax);
+        this.drawGrid(chart, 0, vMax, 0, pMax, '', '', false);
 
         // Reservoir EDPVR曲線（MV閉鎖時）
         ctx.strokeStyle = this.colors.edpvr;
@@ -489,6 +510,9 @@ class ChartManager {
                 ctx.fill();
             }
         }
+
+        // 軸ラベルを最前面に描画
+        this.drawGridLabels(chart, 0, vMax, 0, pMax);
     }
 
     /**
