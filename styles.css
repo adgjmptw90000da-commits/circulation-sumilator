@@ -401,6 +401,51 @@ body {
     border-color: var(--accent);
 }
 
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+input[type="number"] {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.number-stepper {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.number-stepper input {
+    width: 72px;
+}
+
+.number-stepper-btn {
+    width: 1.6rem;
+    height: 1.6rem;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 1rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.number-stepper-btn:active {
+    transform: translateY(1px);
+}
+
+.modal-grid .number-stepper {
+    margin-left: auto;
+}
+
+.modal-grid .number-stepper input {
+    width: 78px;
+}
+
 .params-panel .modal-grid {
     grid-template-columns: 1fr;
 }
@@ -801,6 +846,16 @@ body {
     .controls .btn {
         flex: 1 1 calc(50% - 0.5rem);
         text-align: center;
+    }
+
+    .number-stepper-btn {
+        width: 2rem;
+        height: 2rem;
+        font-size: 1.05rem;
+    }
+
+    .number-stepper input {
+        width: 64px;
     }
 
     .speed-control {

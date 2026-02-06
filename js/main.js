@@ -46,6 +46,7 @@ class App {
         this.syncSpeedFromUI();
         this.applyPressureVitalVisibility();
         this.updateParamGroupVisibility();
+        this.setupNumberSteppers();
         this.setParamsTab(this.activeParamsTab);
         this.renderSavedDrawings();
     }
@@ -154,6 +155,75 @@ class App {
                 }
             });
         }
+    }
+
+    setupNumberSteppers() {
+        const inputs = document.querySelectorAll('input[type="number"]');
+        inputs.forEach((input) => {
+            if (input.dataset.stepperReady === 'true') return;
+            if (input.closest('.number-stepper')) return;
+
+            const stepper = document.createElement('div');
+            stepper.className = 'number-stepper';
+            const decBtn = document.createElement('button');
+            decBtn.type = 'button';
+            decBtn.className = 'number-stepper-btn';
+            decBtn.textContent = '−';
+            const incBtn = document.createElement('button');
+            incBtn.type = 'button';
+            incBtn.className = 'number-stepper-btn';
+            incBtn.textContent = '＋';
+
+            const parent = input.parentNode;
+            if (!parent) return;
+            parent.insertBefore(stepper, input);
+            stepper.appendChild(decBtn);
+            stepper.appendChild(input);
+            stepper.appendChild(incBtn);
+            input.dataset.stepperReady = 'true';
+
+            const getStep = () => {
+                const stepAttr = input.getAttribute('step');
+                if (!stepAttr || stepAttr === 'any') return 1;
+                const parsed = parseFloat(stepAttr);
+                return isNaN(parsed) ? 1 : parsed;
+            };
+
+            const getDecimals = (step) => {
+                const stepStr = step.toString();
+                const idx = stepStr.indexOf('.');
+                return idx >= 0 ? stepStr.length - idx - 1 : 0;
+            };
+
+            const clamp = (value) => {
+                const minAttr = input.getAttribute('min');
+                const maxAttr = input.getAttribute('max');
+                let next = value;
+                if (minAttr !== null && minAttr !== '') {
+                    const min = parseFloat(minAttr);
+                    if (!isNaN(min)) next = Math.max(min, next);
+                }
+                if (maxAttr !== null && maxAttr !== '') {
+                    const max = parseFloat(maxAttr);
+                    if (!isNaN(max)) next = Math.min(max, next);
+                }
+                return next;
+            };
+
+            const applyDelta = (direction) => {
+                const step = getStep();
+                const decimals = getDecimals(step);
+                const currentRaw = parseFloat(input.value);
+                const base = isNaN(currentRaw) ? 0 : currentRaw;
+                let next = base + step * direction;
+                next = clamp(next);
+                input.value = decimals > 0 ? next.toFixed(decimals) : next.toString();
+                input.dispatchEvent(new Event('change', { bubbles: true }));
+            };
+
+            decBtn.addEventListener('click', () => applyDelta(-1));
+            incBtn.addEventListener('click', () => applyDelta(1));
+        });
     }
 
     toggleParamsPanel() {
