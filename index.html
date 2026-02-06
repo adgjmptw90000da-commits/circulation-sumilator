@@ -15,8 +15,6 @@
             <h1>循環シミュレーター</h1>
             <div class="controls">
                 <button id="startBtn" class="btn btn-primary">▶ スタート</button>
-                <button id="toggleParamsBtn" type="button" class="btn btn-secondary">📋 パラメータ</button>
-                <button id="openSettingsBtn" type="button" class="btn btn-secondary">⚙ 設定</button>
                 <button id="resetBtn" class="btn btn-secondary">↺ リセット</button>
                 <div class="speed-control">
                     <label>速度: <span id="speedValue" class="speed-value">1</span>x</label>
@@ -31,199 +29,281 @@
                 <!-- モニター + パラメータ -->
                 <div class="monitor-section">
                     <aside class="params-panel" id="paramsPanel">
-                        <h2>パラメータ</h2>
-                        <div class="param-select">
-                            <label for="paramGroupSelect">項目</label>
-                            <select id="paramGroupSelect">
-                                <option value="heart" selected>心拍</option>
-                                <option value="vein">静脈</option>
-                                <option value="la">左房</option>
-                                <option value="mitral">僧帽弁</option>
-                                <option value="lv">左室</option>
-                                <option value="aortic-valve">大動脈弁</option>
-                                <option value="aorta">大動脈</option>
-                            </select>
+                        <div class="params-tabs">
+                            <button type="button" class="params-tab is-active" data-tab="params">パラメータ</button>
+                            <button type="button" class="params-tab" data-tab="settings">設定</button>
+                            <button type="button" class="params-tab" data-tab="save">描画保存</button>
                         </div>
 
-                        <div class="param-section param-group" data-group="heart">
-                            <div class="param-section-header">心拍</div>
-                            <div class="param-content">
-                                <div class="param-row">
-                                    <label>HR (bpm)</label>
-                                    <input type="number" id="param-hr" value="75" min="30" max="200">
+                        <div class="params-tab-content is-active" data-tab-content="params">
+                            <div class="param-select">
+                                <label for="paramGroupSelect">項目</label>
+                                <select id="paramGroupSelect">
+                                    <option value="heart" selected>心拍</option>
+                                    <option value="vein">静脈</option>
+                                    <option value="la">左房</option>
+                                    <option value="mitral">僧帽弁</option>
+                                    <option value="lv">左室</option>
+                                    <option value="aortic-valve">大動脈弁</option>
+                                    <option value="aorta">大動脈</option>
+                                </select>
+                            </div>
+
+                            <div class="param-section param-group" data-group="heart">
+                                <div class="param-section-header">心拍</div>
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label>HR (bpm)</label>
+                                        <input type="number" id="param-hr" value="75" min="30" max="200">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>PR間隔 (sec)</label>
+                                        <input type="number" id="param-pr" value="0.15" step="0.01" min="-0.2" max="0.3">
+                                    </div>
                                 </div>
-                                <div class="param-row">
-                                    <label>PR間隔 (sec)</label>
-                                    <input type="number" id="param-pr" value="0.15" step="0.01" min="-0.2" max="0.3">
+                            </div>
+
+                            <div class="param-section param-group" data-group="vein">
+                                <div class="param-section-header">静脈</div>
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label>Pv (mmHg)</label>
+                                        <input type="number" id="param-pv" value="8" step="1" min="0" max="30">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>Rv (mmHg·s/mL)</label>
+                                        <input type="number" id="param-rv" value="0.05" step="0.001" min="0.001" max="0.1">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="param-section param-group" data-group="la">
+                                <div class="param-section-header">左房</div>
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label>左房収縮</label>
+                                        <select id="param-la-contraction">
+                                            <option value="on" selected>あり</option>
+                                            <option value="off">なし</option>
+                                        </select>
+                                    </div>
+                                    <div class="param-row">
+                                        <label>LA Ees (mmHg/mL)</label>
+                                        <input type="number" id="param-la-ees" value="0.25" step="0.01" min="0.05" max="1">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>LA α (mmHg)</label>
+                                        <input type="number" id="param-la-alpha" value="0.12" step="0.01" min="0.01" max="1">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>LA β (1/mL)</label>
+                                        <input type="number" id="param-la-beta" value="0.05" step="0.01" min="0.01" max="0.2">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>LA V0 (mL)</label>
+                                        <input type="number" id="param-la-v0" value="0" step="1" min="0" max="20">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="param-section param-group" data-group="mitral">
+                                <div class="param-section-header">僧帽弁</div>
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label>MS</label>
+                                        <select id="param-ms">
+                                            <option value="off" selected>なし</option>
+                                            <option value="on">あり</option>
+                                        </select>
+                                    </div>
+                                    <div class="param-row">
+                                        <label>MVA (cm^2)</label>
+                                        <input type="number" id="param-ms-mva" value="1.5" step="0.1" min="0.2" max="5">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>MVA 正常 (cm^2)</label>
+                                        <input type="number" id="param-mv-area" value="4.0" step="0.1" min="1" max="8">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>MR</label>
+                                        <select id="param-mr">
+                                            <option value="off" selected>なし</option>
+                                            <option value="on">あり</option>
+                                        </select>
+                                    </div>
+                                    <div class="param-row">
+                                        <label>MR EROA (cm^2)</label>
+                                        <input type="number" id="param-mr-eroa" value="0.2" step="0.01" min="0" max="5">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>MR Cd</label>
+                                        <input type="number" id="param-mr-cd" value="0.75" step="0.01" min="0.1" max="1.2">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>Rm (mmHg·s/mL)</label>
+                                        <input type="number" id="param-rm" value="0.01" step="0.001" min="0.001" max="0.1">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>Lm (mmHg·s²/mL)</label>
+                                        <input type="number" id="param-lm" value="0.0001" step="0.0001" min="0.0001" max="0.01">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="param-section param-group" data-group="lv">
+                                <div class="param-section-header">左室</div>
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label>LV Ees (mmHg/mL)</label>
+                                        <input type="number" id="param-lv-ees" value="2.3" step="0.1" min="0.5" max="5">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>LV α (mmHg)</label>
+                                        <input type="number" id="param-lv-alpha" value="0.03" step="0.01" min="0.01" max="0.2">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>LV β (1/mL)</label>
+                                        <input type="number" id="param-lv-beta" value="0.05" step="0.01" min="0.01" max="0.2">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>LV V0 (mL)</label>
+                                        <input type="number" id="param-lv-v0" value="0" step="1" min="0" max="20">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="param-section param-group" data-group="aortic-valve">
+                                <div class="param-section-header">大動脈弁</div>
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label>AS</label>
+                                        <select id="param-as">
+                                            <option value="off" selected>なし</option>
+                                            <option value="on">あり</option>
+                                        </select>
+                                    </div>
+                                    <div class="param-row">
+                                        <label>AVA (cm^2)</label>
+                                        <input type="number" id="param-as-ava" value="1.5" step="0.1" min="0.2" max="5">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>AR</label>
+                                        <select id="param-ar">
+                                            <option value="off" selected>なし</option>
+                                            <option value="on">あり</option>
+                                        </select>
+                                    </div>
+                                    <div class="param-row">
+                                        <label>AR EROA (cm^2)</label>
+                                        <input type="number" id="param-ar-eroa" value="0.3" step="0.01" min="0" max="5">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>AR Cd</label>
+                                        <input type="number" id="param-ar-cd" value="0.88" step="0.01" min="0.1" max="1.2">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>Ra (mmHg·s/mL)</label>
+                                        <input type="number" id="param-ra" value="0.02" step="0.001" min="0.001" max="0.1">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>La (mmHg·s²/mL)</label>
+                                        <input type="number" id="param-la-inert" value="0.0001" step="0.0001" min="0.0001" max="0.01">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="param-section param-group" data-group="aorta">
+                                <div class="param-section-header">大動脈</div>
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label>Ca (mL/mmHg)</label>
+                                        <input type="number" id="param-ca" value="1.5" step="0.1" min="0.5" max="5">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>Ao Area (cm^2)</label>
+                                        <input type="number" id="param-ao-area" value="4.0" step="0.1" min="1" max="10">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>SVR (dyn·s/cm⁵)</label>
+                                        <input type="number" id="param-svr" value="1200" step="50" min="400" max="4000">
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="param-section param-group" data-group="vein">
-                            <div class="param-section-header">静脈</div>
-                            <div class="param-content">
-                                <div class="param-row">
-                                    <label>Pv (mmHg)</label>
-                                    <input type="number" id="param-pv" value="8" step="1" min="0" max="30">
+                        <div class="params-tab-content" data-tab-content="settings">
+                            <div class="modal-section">
+                                <h4>波形表示項目</h4>
+                                <div class="toggle-grid">
+                                    <label><input type="checkbox" class="waveform-toggle" value="art" checked> ART</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="lvp" checked> LVP</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="lap" checked> LAP</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="avFlow" checked> AV flow</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="mvFlow" checked> MV flow</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="pvFlow" checked> PV flow</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="laElastance" checked> LA elastance</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="lvElastance" checked> LV elastance</label>
                                 </div>
-                                <div class="param-row">
-                                    <label>Rv (mmHg·s/mL)</label>
-                                    <input type="number" id="param-rv" value="0.05" step="0.001" min="0.001" max="0.1">
+                            </div>
+                            <div class="modal-section">
+                                <h4>モニタースケール</h4>
+                                <div class="modal-grid">
+                                    <label>圧 Max (LV/AO)
+                                        <input type="number" class="scale-input" id="monitor-pressure-lv-ao-max" value="150" step="10" min="50" max="300">
+                                    </label>
+                                    <label>圧 Max (LA)
+                                        <input type="number" class="scale-input" id="monitor-pressure-la-max" value="40" step="5" min="5" max="80">
+                                    </label>
+                                    <label>Flow Max
+                                        <input type="number" class="scale-input" id="scale-flow-max" value="1200" step="100" min="200" max="2000">
+                                    </label>
+                                    <label>Flow Min
+                                        <input type="number" class="scale-input" id="scale-flow-min" value="-200" step="50" min="-500" max="0">
+                                    </label>
+                                    <label>E Max
+                                        <input type="number" class="scale-input" id="scale-elastance-max" value="3" step="0.5" min="1" max="10">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="modal-section">
+                                <h4>PVループスケール</h4>
+                                <div class="modal-grid">
+                                    <label>LA V Max
+                                        <input type="number" class="scale-input" id="la-pv-vmax" value="120" min="20" max="200">
+                                    </label>
+                                    <label>LA P Max
+                                        <input type="number" class="scale-input" id="la-pv-pmax" value="40" min="5" max="50">
+                                    </label>
+                                    <label>LV V Max
+                                        <input type="number" class="scale-input" id="lv-pv-vmax" value="150" min="50" max="300">
+                                    </label>
+                                    <label>LV P Max
+                                        <input type="number" class="scale-input" id="lv-pv-pmax" value="200" min="50" max="300">
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="modal-section">
+                                <h4>CO曲線スケール</h4>
+                                <div class="modal-grid">
+                                    <label>X Max (Pv)
+                                        <input type="number" class="scale-input" id="balance-x-max" value="20" step="1" min="5" max="50">
+                                    </label>
+                                    <label>Y Max (CO/VR)
+                                        <input type="number" class="scale-input" id="balance-y-max" value="12" step="1" min="4" max="20">
+                                    </label>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="param-section param-group" data-group="la">
-                            <div class="param-section-header">左房</div>
-                            <div class="param-content">
-                                <div class="param-row">
-                                    <label>左房収縮</label>
-                                    <select id="param-la-contraction">
-                                        <option value="on" selected>あり</option>
-                                        <option value="off">なし</option>
-                                    </select>
-                                </div>
-                                <div class="param-row">
-                                    <label>LA Ees (mmHg/mL)</label>
-                                    <input type="number" id="param-la-ees" value="0.25" step="0.01" min="0.05" max="1">
-                                </div>
-                                <div class="param-row">
-                                    <label>LA α (mmHg)</label>
-                                    <input type="number" id="param-la-alpha" value="0.12" step="0.01" min="0.01" max="1">
-                                </div>
-                                <div class="param-row">
-                                    <label>LA β (1/mL)</label>
-                                    <input type="number" id="param-la-beta" value="0.05" step="0.01" min="0.01" max="0.2">
-                                </div>
-                                <div class="param-row">
-                                    <label>LA V0 (mL)</label>
-                                    <input type="number" id="param-la-v0" value="0" step="1" min="0" max="20">
+                        <div class="params-tab-content" data-tab-content="save">
+                            <div class="save-controls">
+                                <div class="save-form" id="saveDrawingForm">
+                                    <input type="text" id="saveDrawingName" maxlength="20" placeholder="保存名 (任意)">
+                                    <button type="button" id="saveDrawingBtn" class="btn btn-primary">保存</button>
+                                    <button type="button" id="cancelSaveDrawingBtn" class="btn btn-secondary">取消</button>
                                 </div>
                             </div>
-                        </div>
-
-                        <div class="param-section param-group" data-group="mitral">
-                            <div class="param-section-header">僧帽弁</div>
-                            <div class="param-content">
-                                <div class="param-row">
-                                    <label>MS</label>
-                                    <select id="param-ms">
-                                        <option value="off" selected>なし</option>
-                                        <option value="on">あり</option>
-                                    </select>
-                                </div>
-                                <div class="param-row">
-                                    <label>MVA (cm^2)</label>
-                                    <input type="number" id="param-ms-mva" value="1.5" step="0.1" min="0.2" max="5">
-                                </div>
-                                <div class="param-row">
-                                    <label>MVA 正常 (cm^2)</label>
-                                    <input type="number" id="param-mv-area" value="4.0" step="0.1" min="1" max="8">
-                                </div>
-                                <div class="param-row">
-                                    <label>MR</label>
-                                    <select id="param-mr">
-                                        <option value="off" selected>なし</option>
-                                        <option value="on">あり</option>
-                                    </select>
-                                </div>
-                                <div class="param-row">
-                                    <label>MR EROA (cm^2)</label>
-                                    <input type="number" id="param-mr-eroa" value="0.2" step="0.01" min="0" max="5">
-                                </div>
-                                <div class="param-row">
-                                    <label>MR Cd</label>
-                                    <input type="number" id="param-mr-cd" value="0.75" step="0.01" min="0.1" max="1.2">
-                                </div>
-                                <div class="param-row">
-                                    <label>Rm (mmHg·s/mL)</label>
-                                    <input type="number" id="param-rm" value="0.01" step="0.001" min="0.001" max="0.1">
-                                </div>
-                                <div class="param-row">
-                                    <label>Lm (mmHg·s²/mL)</label>
-                                    <input type="number" id="param-lm" value="0.0001" step="0.0001" min="0.0001" max="0.01">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="param-section param-group" data-group="lv">
-                            <div class="param-section-header">左室</div>
-                            <div class="param-content">
-                                <div class="param-row">
-                                    <label>LV Ees (mmHg/mL)</label>
-                                    <input type="number" id="param-lv-ees" value="2.3" step="0.1" min="0.5" max="5">
-                                </div>
-                                <div class="param-row">
-                                    <label>LV α (mmHg)</label>
-                                    <input type="number" id="param-lv-alpha" value="0.03" step="0.01" min="0.01" max="0.2">
-                                </div>
-                                <div class="param-row">
-                                    <label>LV β (1/mL)</label>
-                                    <input type="number" id="param-lv-beta" value="0.05" step="0.01" min="0.01" max="0.2">
-                                </div>
-                                <div class="param-row">
-                                    <label>LV V0 (mL)</label>
-                                    <input type="number" id="param-lv-v0" value="0" step="1" min="0" max="20">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="param-section param-group" data-group="aortic-valve">
-                            <div class="param-section-header">大動脈弁</div>
-                            <div class="param-content">
-                                <div class="param-row">
-                                    <label>AS</label>
-                                    <select id="param-as">
-                                        <option value="off" selected>なし</option>
-                                        <option value="on">あり</option>
-                                    </select>
-                                </div>
-                                <div class="param-row">
-                                    <label>AVA (cm^2)</label>
-                                    <input type="number" id="param-as-ava" value="1.5" step="0.1" min="0.2" max="5">
-                                </div>
-                                <div class="param-row">
-                                    <label>AR</label>
-                                    <select id="param-ar">
-                                        <option value="off" selected>なし</option>
-                                        <option value="on">あり</option>
-                                    </select>
-                                </div>
-                                <div class="param-row">
-                                    <label>AR EROA (cm^2)</label>
-                                    <input type="number" id="param-ar-eroa" value="0.3" step="0.01" min="0" max="5">
-                                </div>
-                                <div class="param-row">
-                                    <label>AR Cd</label>
-                                    <input type="number" id="param-ar-cd" value="0.88" step="0.01" min="0.1" max="1.2">
-                                </div>
-                                <div class="param-row">
-                                    <label>Ra (mmHg·s/mL)</label>
-                                    <input type="number" id="param-ra" value="0.02" step="0.001" min="0.001" max="0.1">
-                                </div>
-                                <div class="param-row">
-                                    <label>La (mmHg·s²/mL)</label>
-                                    <input type="number" id="param-la-inert" value="0.0001" step="0.0001" min="0.0001" max="0.01">
-                                </div>
-                            </div>
-                        </div>
-
-                        <div class="param-section param-group" data-group="aorta">
-                            <div class="param-section-header">大動脈</div>
-                            <div class="param-content">
-                                <div class="param-row">
-                                    <label>Ca (mL/mmHg)</label>
-                                    <input type="number" id="param-ca" value="1.5" step="0.1" min="0.5" max="5">
-                                </div>
-                                <div class="param-row">
-                                    <label>Ao Area (cm^2)</label>
-                                    <input type="number" id="param-ao-area" value="4.0" step="0.1" min="1" max="10">
-                                </div>
-                                <div class="param-row">
-                                    <label>SVR (dyn·s/cm⁵)</label>
-                                    <input type="number" id="param-svr" value="1200" step="50" min="400" max="4000">
-                                </div>
-                            </div>
+                            <div id="savedDrawingList" class="saved-drawing-list"></div>
                         </div>
                     </aside>
 
@@ -311,86 +391,14 @@
                     </div>
 
                     <!-- 循環平衡（CO/VR） -->
-                    <div class="chart-container">
-                        <h3>循環平衡（CO/VR）</h3>
+                    <div class="chart-container balance-chart">
+                        <h3>CO曲線</h3>
                         <canvas id="chart-balance"></canvas>
                     </div>
                 </div>
 
 
             </main>
-        </div>
-    </div>
-
-    <div id="settingsModal" class="modal-overlay" hidden>
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>表示項目・スケール設定</h3>
-                <button id="closeSettingsBtn" type="button" class="btn btn-secondary">閉じる</button>
-            </div>
-            <div class="modal-body">
-                <div class="modal-section">
-                    <h4>波形表示項目</h4>
-                    <div class="toggle-grid">
-                        <label><input type="checkbox" class="waveform-toggle" value="art" checked> ART</label>
-                        <label><input type="checkbox" class="waveform-toggle" value="lvp" checked> LVP</label>
-                        <label><input type="checkbox" class="waveform-toggle" value="lap" checked> LAP</label>
-                        <label><input type="checkbox" class="waveform-toggle" value="avFlow" checked> AV flow</label>
-                        <label><input type="checkbox" class="waveform-toggle" value="mvFlow" checked> MV flow</label>
-                        <label><input type="checkbox" class="waveform-toggle" value="pvFlow" checked> PV flow</label>
-                        <label><input type="checkbox" class="waveform-toggle" value="laElastance" checked> LA elastance</label>
-                        <label><input type="checkbox" class="waveform-toggle" value="lvElastance" checked> LV elastance</label>
-                    </div>
-                </div>
-                <div class="modal-section">
-                    <h4>モニタースケール</h4>
-                    <div class="modal-grid">
-                        <label>圧 Max (LV/AO)
-                            <input type="number" class="scale-input" id="monitor-pressure-lv-ao-max" value="150" step="10" min="50" max="300">
-                        </label>
-                        <label>圧 Max (LA)
-                            <input type="number" class="scale-input" id="monitor-pressure-la-max" value="40" step="5" min="5" max="80">
-                        </label>
-                        <label>Flow Max
-                            <input type="number" class="scale-input" id="scale-flow-max" value="1200" step="100" min="200" max="2000">
-                        </label>
-                        <label>Flow Min
-                            <input type="number" class="scale-input" id="scale-flow-min" value="-200" step="50" min="-500" max="0">
-                        </label>
-                        <label>E Max
-                            <input type="number" class="scale-input" id="scale-elastance-max" value="3" step="0.5" min="1" max="10">
-                        </label>
-                    </div>
-                </div>
-                <div class="modal-section">
-                    <h4>PVループスケール</h4>
-                    <div class="modal-grid">
-                        <label>LA V Max
-                            <input type="number" class="scale-input" id="la-pv-vmax" value="120" min="20" max="200">
-                        </label>
-                        <label>LA P Max
-                            <input type="number" class="scale-input" id="la-pv-pmax" value="40" min="5" max="50">
-                        </label>
-                        <label>LV V Max
-                            <input type="number" class="scale-input" id="lv-pv-vmax" value="150" min="50" max="300">
-                        </label>
-                        <label>LV P Max
-                            <input type="number" class="scale-input" id="lv-pv-pmax" value="200" min="50" max="300">
-                        </label>
-                    </div>
-                </div>
-                <div class="modal-section">
-                    <h4>循環平衡スケール</h4>
-                    <div class="modal-grid">
-                        <label>X Max (LAP)
-                            <input type="number" class="scale-input" id="balance-x-max" value="20" step="1" min="5" max="50">
-                        </label>
-                        <label>Y Max (CO/VR)
-                            <input type="number" class="scale-input" id="balance-y-max" value="12" step="1" min="4" max="20">
-                        </label>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 

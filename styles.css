@@ -242,6 +242,9 @@ body {
     overflow-y: auto;
     border: 1px solid var(--border);
     border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
 }
 
 .params-panel.is-hidden {
@@ -284,10 +287,35 @@ body {
     display: block;
 }
 
-.params-panel h2 {
-    font-size: 1rem;
-    margin-bottom: 1rem;
-    color: var(--accent);
+.params-tabs {
+    display: flex;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
+.params-tab {
+    flex: 1;
+    padding: 0.35rem 0.4rem;
+    font-size: 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    cursor: pointer;
+}
+
+.params-tab.is-active {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #ffffff;
+}
+
+.params-tab-content {
+    display: none;
+}
+
+.params-tab-content.is-active {
+    display: block;
 }
 
 .param-section {
@@ -371,6 +399,86 @@ body {
 .param-row select:focus {
     outline: none;
     border-color: var(--accent);
+}
+
+.params-panel .modal-grid {
+    grid-template-columns: 1fr;
+}
+
+.params-panel .toggle-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.save-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.6rem;
+}
+
+.save-form {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.save-form input {
+    flex: 1 1 120px;
+    min-width: 120px;
+    padding: 0.3rem 0.4rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+}
+
+.saved-drawing-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-height: 140px;
+    overflow: auto;
+}
+
+.saved-drawing-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.saved-drawing-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+}
+
+.saved-drawing-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.saved-drawing-remove {
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.saved-drawing-remove:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
 }
 
 /* Charts area */
@@ -549,6 +657,83 @@ body {
     flex: 1;
     width: 100%;
     background: var(--chart-bg);
+}
+
+.balance-chart #chart-balance {
+    flex: 0 0 auto;
+    height: clamp(200px, 32vh, 280px);
+}
+
+.balance-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.4rem;
+}
+
+.balance-toolbar input {
+    flex: 1 1 140px;
+    min-width: 120px;
+    padding: 0.3rem 0.4rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+}
+
+.balance-toolbar .btn {
+    padding: 0.3rem 0.55rem;
+    font-size: 0.75rem;
+}
+
+.balance-legend {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    margin-top: 0.35rem;
+    max-height: 88px;
+    overflow: auto;
+}
+
+.balance-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.balance-legend-swatch {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+}
+
+.balance-legend-label {
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.balance-legend-remove {
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 3px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    line-height: 1;
+    cursor: pointer;
+}
+
+.balance-legend-remove:hover {
+    border-color: var(--accent);
+    color: var(--text-primary);
 }
 
 .scale-controls {

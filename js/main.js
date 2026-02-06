@@ -10,12 +10,17 @@ class App {
         this.speed = 1;
         this.animationId = null;
         this.lastFrameTime = 0;
-        this.balanceCurve = null;
-        this.balanceCurveKey = '';
-        this.balanceCurveTimer = null;
+        this.balanceCurves = [];
         this.balanceCurveToken = 0;
         this.balanceWorker = null;
-        this.balanceCurvePendingKey = '';
+        this.balanceWorkerFailed = false;
+        this.balanceCurveRequests = new Map();
+        this.balanceCurveColors = ['#ff6b6b', '#5c7cfa', '#51cf66', '#ffd43b', '#ff922b'];
+        this.isBalanceComputing = false;
+        this.savedDrawings = [];
+        this.savedDrawingColors = ['#ff6b6b', '#5c7cfa', '#51cf66', '#ffd43b', '#ff922b'];
+        this.activeParamsTab = 'params';
+        this.isSaveNameComposing = false;
         this.resizeRaf = 0;
         this.resizeObserver = null;
 
@@ -23,10 +28,15 @@ class App {
         this.bindEvents();
         this.setupResizeObserver();
         this.updateControls();
-        this.scheduleBalanceCurve();
-
         // 初回描画
-        this.chartManager.update(this.simulator, this.getScaleSettings(), null, this.getWaveformVisibility(), this.balanceCurve);
+        this.chartManager.update(
+            this.simulator,
+            this.getScaleSettings(),
+            null,
+            this.getWaveformVisibility(),
+            this.getBalanceCurvesForChart(),
+            this.savedDrawings
+        );
         this.updateStatus();
     }
 
@@ -36,29 +46,35 @@ class App {
         this.syncSpeedFromUI();
         this.applyPressureVitalVisibility();
         this.updateParamGroupVisibility();
+        this.setParamsTab(this.activeParamsTab);
+        this.renderSavedDrawings();
     }
 
     bindEvents() {
         // コントロールボタン
         document.getElementById('startBtn').addEventListener('click', () => this.toggleRun());
-        document.getElementById('toggleParamsBtn').addEventListener('click', () => this.toggleParamsPanel());
-        document.getElementById('openSettingsBtn').addEventListener('click', () => this.openSettingsModal());
+        const toggleBtn = document.getElementById('toggleParamsBtn');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', () => this.toggleParamsPanel());
+        }
+        const openSettingsBtn = document.getElementById('openSettingsBtn');
+        if (openSettingsBtn) {
+            openSettingsBtn.addEventListener('click', () => {
+                this.showParamsPanel();
+                this.setParamsTab('settings');
+            });
+        }
         document.getElementById('resetBtn').addEventListener('click', () => this.reset());
-        document.getElementById('closeSettingsBtn').addEventListener('click', () => this.closeSettingsModal());
+
         const paramGroupSelect = document.getElementById('paramGroupSelect');
         if (paramGroupSelect) {
             paramGroupSelect.addEventListener('change', () => this.updateParamGroupVisibility());
         }
-
-        const settingsModal = document.getElementById('settingsModal');
-        settingsModal.addEventListener('click', (e) => {
-            if (e.target === settingsModal) {
-                this.closeSettingsModal();
-            }
-        });
-
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') this.closeSettingsModal();
+        document.querySelectorAll('.params-tab').forEach((tab) => {
+            tab.addEventListener('click', () => {
+                const target = tab.dataset.tab;
+                if (target) this.setParamsTab(target);
+            });
         });
 
         // 速度スライダー
@@ -93,6 +109,51 @@ class App {
         window.addEventListener('resize', () => {
             this.handleResize();
         });
+
+        const addCurveBtn = document.getElementById('addBalanceCurveBtn');
+        if (addCurveBtn) {
+            addCurveBtn.addEventListener('click', () => this.addBalanceCurve());
+        }
+        const clearCurveBtn = document.getElementById('clearBalanceCurvesBtn');
+        if (clearCurveBtn) {
+            clearCurveBtn.addEventListener('click', () => this.clearBalanceCurves());
+        }
+        const nameInput = document.getElementById('balanceNameInput');
+        if (nameInput) {
+            nameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    this.addBalanceCurve();
+                }
+            });
+        }
+
+        const saveBtn = document.getElementById('saveDrawingBtn');
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => this.saveDrawing());
+        }
+        const cancelSaveBtn = document.getElementById('cancelSaveDrawingBtn');
+        if (cancelSaveBtn) {
+            cancelSaveBtn.addEventListener('click', () => this.closeSaveDrawingForm());
+        }
+        const saveNameInput = document.getElementById('saveDrawingName');
+        if (saveNameInput) {
+            saveNameInput.addEventListener('compositionstart', () => {
+                this.isSaveNameComposing = true;
+            });
+            saveNameInput.addEventListener('compositionend', () => {
+                this.isSaveNameComposing = false;
+            });
+            saveNameInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    if (e.isComposing || this.isSaveNameComposing || e.keyCode === 229) {
+                        return;
+                    }
+                    e.preventDefault();
+                    this.saveDrawing();
+                }
+            });
+        }
     }
 
     toggleParamsPanel() {
@@ -100,12 +161,43 @@ class App {
         const section = document.querySelector('.monitor-section');
         const button = document.getElementById('toggleParamsBtn');
         if (!panel || !section || !button) return;
+        this.setParamsPanelVisible(panel.classList.contains('is-hidden'));
+    }
 
-        const hidden = panel.classList.toggle('is-hidden');
-        section.classList.toggle('params-hidden', hidden);
-        button.textContent = hidden ? '📋 パラメータ表示' : '📋 パラメータ';
+    setParamsPanelVisible(visible) {
+        const panel = document.getElementById('paramsPanel');
+        const section = document.querySelector('.monitor-section');
+        const button = document.getElementById('toggleParamsBtn');
+        if (!panel || !section || !button) return;
+        panel.classList.toggle('is-hidden', !visible);
+        section.classList.toggle('params-hidden', !visible);
+        button.textContent = visible ? '📋 パラメータ' : '📋 パラメータ表示';
         this.chartManager.resize();
-        this.chartManager.update(this.simulator, this.getScaleSettings(), this.calculateMetrics(), this.getWaveformVisibility(), this.balanceCurve);
+        this.chartManager.update(
+            this.simulator,
+            this.getScaleSettings(),
+            this.calculateMetrics(),
+            this.getWaveformVisibility(),
+            this.getBalanceCurvesForChart(),
+            this.savedDrawings
+        );
+    }
+
+    showParamsPanel() {
+        this.setParamsPanelVisible(true);
+    }
+
+    setParamsTab(tab) {
+        this.activeParamsTab = tab;
+        document.querySelectorAll('.params-tab').forEach((btn) => {
+            btn.classList.toggle('is-active', btn.dataset.tab === tab);
+        });
+        document.querySelectorAll('.params-tab-content').forEach((content) => {
+            content.classList.toggle('is-active', content.dataset.tabContent === tab);
+        });
+        if (tab === 'params') {
+            this.updateParamGroupVisibility();
+        }
     }
 
     updateParamGroupVisibility() {
@@ -125,7 +217,14 @@ class App {
         this.resizeRaf = requestAnimationFrame(() => {
             this.resizeRaf = 0;
             this.chartManager.resize();
-            this.chartManager.update(this.simulator, this.getScaleSettings(), this.calculateMetrics(), this.getWaveformVisibility(), this.balanceCurve);
+            this.chartManager.update(
+                this.simulator,
+                this.getScaleSettings(),
+                this.calculateMetrics(),
+                this.getWaveformVisibility(),
+                this.getBalanceCurvesForChart(),
+                this.savedDrawings
+            );
         });
     }
 
@@ -142,35 +241,69 @@ class App {
         targets.forEach((target) => this.resizeObserver.observe(target));
     }
 
-    scheduleBalanceCurve() {
-        const scale = this.getScaleSettings();
-        const key = JSON.stringify({
-            params: this.simulator.params,
-            balanceXMax: scale.balanceXMax
-        });
-        if (this.balanceCurve && this.balanceCurveKey === key) return;
-        if (this.balanceCurveTimer) clearTimeout(this.balanceCurveTimer);
-        const token = ++this.balanceCurveToken;
-        this.balanceCurveTimer = setTimeout(() => {
-            if (!this.balanceWorker) {
-                this.balanceWorker = new Worker('js/balance-worker.js');
-                this.balanceWorker.addEventListener('message', (e) => {
-                    if (!e.data || !Array.isArray(e.data.results)) return;
-                    if (e.data.token !== this.balanceCurveToken) return;
-                    this.balanceCurve = e.data.results;
-                    this.balanceCurveKey = this.balanceCurvePendingKey;
-                    this.chartManager.update(this.simulator, this.getScaleSettings(), this.calculateMetrics(), this.getWaveformVisibility(), this.balanceCurve);
-                });
-            }
-            this.balanceCurvePendingKey = key;
+    computeBalanceCurve(paramsSnapshot, xMax) {
+        const points = 25;
+        const durationSec = 6;
+        if (this.balanceWorkerFailed || typeof Worker === 'undefined') {
+            return Promise.resolve(this.computeBalanceCurveSync(paramsSnapshot, xMax, points, durationSec));
+        }
+
+        if (!this.balanceWorker) {
+            this.balanceWorker = new Worker('js/balance-worker.js');
+            this.balanceWorker.addEventListener('error', () => {
+                this.balanceWorkerFailed = true;
+                this.balanceWorker = null;
+            });
+            this.balanceWorker.addEventListener('message', (e) => {
+                if (!e.data || !Array.isArray(e.data.results)) return;
+                const token = e.data.token;
+                const req = this.balanceCurveRequests.get(token);
+                if (!req) return;
+                clearTimeout(req.timeout);
+                this.balanceCurveRequests.delete(token);
+                req.resolve(e.data.results);
+            });
+        }
+
+        return new Promise((resolve) => {
+            const token = ++this.balanceCurveToken;
+            const timeout = setTimeout(() => {
+                if (!this.balanceCurveRequests.has(token)) return;
+                this.balanceCurveRequests.delete(token);
+                resolve(this.computeBalanceCurveSync(paramsSnapshot, xMax, points, durationSec));
+            }, 1200);
+            this.balanceCurveRequests.set(token, { resolve, timeout });
             this.balanceWorker.postMessage({
                 token,
-                params: this.simulator.params,
-                xMax: scale.balanceXMax,
-                points: 25,
-                beats: 6
+                params: paramsSnapshot,
+                xMax,
+                points,
+                durationSec
             });
-        }, 150);
+        });
+    }
+
+    computeBalanceCurveSync(paramsSnapshot, xMax, points = 25, durationSec = 6) {
+        const results = [];
+        for (let i = 0; i < points; i++) {
+            const pvTarget = (xMax * i) / (points - 1);
+            const sim = new CirculationSimulator();
+            sim.updateParams({ ...paramsSnapshot, pv: pvTarget });
+            const hr = sim.params.hr || 75;
+            const stepsPerBeat = Math.max(1, Math.floor((60 / hr) / SIM_CONFIG.dt));
+            const totalSteps = Math.max(stepsPerBeat, Math.floor(durationSec / SIM_CONFIG.dt));
+            for (let step = 0; step < totalSteps; step++) {
+                sim.step();
+            }
+            const history = sim.getHistory();
+            const startIndex = Math.max(0, history.time.length - stepsPerBeat);
+            const recentAoFlow = history.aorticFlow.slice(startIndex);
+            const meanAo = recentAoFlow.length
+                ? recentAoFlow.reduce((a, b) => a + b, 0) / recentAoFlow.length
+                : 0;
+            results.push({ x: pvTarget, y: meanAo * 60 / 1000 });
+        }
+        return results;
     }
 
     bindParamInputs() {
@@ -363,16 +496,6 @@ class App {
         window.location.reload();
     }
 
-    openSettingsModal() {
-        const modal = document.getElementById('settingsModal');
-        if (modal) modal.removeAttribute('hidden');
-    }
-
-    closeSettingsModal() {
-        const modal = document.getElementById('settingsModal');
-        if (modal) modal.setAttribute('hidden', '');
-    }
-
     animate() {
         if (!this.isRunning) return;
 
@@ -390,7 +513,14 @@ class App {
 
         // 描画（60fps程度に抑制）
         const metrics = this.calculateMetrics();
-        this.chartManager.update(this.simulator, this.getScaleSettings(), metrics, this.getWaveformVisibility(), this.balanceCurve);
+        this.chartManager.update(
+            this.simulator,
+            this.getScaleSettings(),
+            metrics,
+            this.getWaveformVisibility(),
+            this.getBalanceCurvesForChart(),
+            this.savedDrawings
+        );
         this.updateStatus();
 
         this.animationId = requestAnimationFrame(() => this.animate());
@@ -446,9 +576,243 @@ class App {
     }
 
     redrawNow() {
-        this.scheduleBalanceCurve();
         const metrics = this.calculateMetrics();
-        this.chartManager.update(this.simulator, this.getScaleSettings(), metrics, this.getWaveformVisibility(), this.balanceCurve);
+        this.chartManager.update(
+            this.simulator,
+            this.getScaleSettings(),
+            metrics,
+            this.getWaveformVisibility(),
+            this.getBalanceCurvesForChart(),
+            this.savedDrawings
+        );
+    }
+
+    getNextBalanceColor() {
+        const used = new Set(this.balanceCurves.map((curve) => curve.color));
+        const available = this.balanceCurveColors.find((color) => !used.has(color));
+        return available || this.balanceCurveColors[this.balanceCurves.length % this.balanceCurveColors.length];
+    }
+
+    getBalanceCurvesForChart() {
+        const saved = this.savedDrawings
+            .filter((drawing) => Array.isArray(drawing.coCurve) && drawing.coCurve.length > 0)
+            .map((drawing) => ({ points: drawing.coCurve, color: drawing.color }));
+        return [...this.balanceCurves, ...saved];
+    }
+
+    getNextSavedColor() {
+        const used = new Set(this.savedDrawings.map((drawing) => drawing.color));
+        const available = this.savedDrawingColors.find((color) => !used.has(color));
+        return available || this.savedDrawingColors[this.savedDrawings.length % this.savedDrawingColors.length];
+    }
+
+    setBalanceComputeState(isComputing) {
+        this.isBalanceComputing = isComputing;
+        const addBtn = document.getElementById('addBalanceCurveBtn');
+        if (addBtn) {
+            addBtn.disabled = isComputing;
+            addBtn.textContent = isComputing ? '計算中…' : '＋ 曲線追加';
+        }
+        const saveBtn = document.getElementById('saveDrawingBtn');
+        if (saveBtn) {
+            saveBtn.disabled = isComputing;
+            saveBtn.textContent = isComputing ? '保存中…' : '保存';
+        }
+    }
+
+    addBalanceCurve() {
+        if (this.isBalanceComputing) return;
+        if (this.balanceCurves.length >= 5) {
+            alert('CO曲線は5つまでです。削除してから追加してください。');
+            return;
+        }
+        const input = document.getElementById('balanceNameInput');
+        const rawName = input ? input.value.trim() : '';
+        if (input) input.blur();
+        const name = rawName || `条件 ${this.balanceCurves.length + 1}`;
+        const paramsSnapshot = { ...this.simulator.params };
+        const xMax = this.getScaleSettings().balanceXMax;
+        this.setBalanceComputeState(true);
+        this.computeBalanceCurve(paramsSnapshot, xMax)
+            .then((points) => {
+                if (!points || points.length === 0) return;
+                const color = this.getNextBalanceColor();
+                this.balanceCurves.push({ name, points, color });
+                if (input) input.value = '';
+                this.renderBalanceLegend();
+                this.chartManager.update(
+                    this.simulator,
+                    this.getScaleSettings(),
+                    this.calculateMetrics(),
+                    this.getWaveformVisibility(),
+                    this.getBalanceCurvesForChart(),
+                    this.savedDrawings
+                );
+            })
+            .finally(() => {
+                this.setBalanceComputeState(false);
+            });
+    }
+
+    clearBalanceCurves() {
+        this.balanceCurves = [];
+        this.renderBalanceLegend();
+        this.chartManager.update(
+            this.simulator,
+            this.getScaleSettings(),
+            this.calculateMetrics(),
+            this.getWaveformVisibility(),
+            this.getBalanceCurvesForChart(),
+            this.savedDrawings
+        );
+    }
+
+    renderBalanceLegend() {
+        const container = document.getElementById('balanceLegend');
+        if (!container) return;
+        container.innerHTML = '';
+        this.balanceCurves.forEach((curve, index) => {
+            const item = document.createElement('div');
+            item.className = 'balance-legend-item';
+            const swatch = document.createElement('span');
+            swatch.className = 'balance-legend-swatch';
+            swatch.style.background = curve.color || this.balanceCurveColors[index % this.balanceCurveColors.length];
+            const label = document.createElement('span');
+            label.className = 'balance-legend-label';
+            label.textContent = curve.name;
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'balance-legend-remove';
+            remove.textContent = '×';
+            remove.addEventListener('click', () => {
+                this.balanceCurves.splice(index, 1);
+                this.renderBalanceLegend();
+                this.chartManager.update(
+                    this.simulator,
+                    this.getScaleSettings(),
+                    this.calculateMetrics(),
+                    this.getWaveformVisibility(),
+                    this.getBalanceCurvesForChart(),
+                    this.savedDrawings
+                );
+            });
+            item.appendChild(swatch);
+            item.appendChild(label);
+            item.appendChild(remove);
+            container.appendChild(item);
+        });
+    }
+
+    closeSaveDrawingForm() {
+        const input = document.getElementById('saveDrawingName');
+        if (input) {
+            input.value = '';
+            input.blur();
+        }
+    }
+
+    getCurrentPvSnapshot() {
+        const history = this.simulator.getHistory();
+        const hr = this.simulator.params.hr || 75;
+        const samplesPerCycle = Math.max(1, Math.floor((60 / hr) / SIM_CONFIG.dt));
+        const startIndex = Math.max(0, history.time.length - samplesPerCycle);
+        return {
+            laVolume: history.laVolume.slice(startIndex),
+            laPressure: history.laPressure.slice(startIndex),
+            lvVolume: history.lvVolume.slice(startIndex),
+            lvPressure: history.lvPressure.slice(startIndex)
+        };
+    }
+
+    saveDrawing() {
+        if (this.isBalanceComputing) return;
+        if (this.savedDrawings.length >= 5) {
+            alert('保存は5つまでです。削除してから追加してください。');
+            return;
+        }
+        const input = document.getElementById('saveDrawingName');
+        const rawName = input ? input.value.trim() : '';
+        if (input) input.blur();
+        const name = rawName || `保存 ${this.savedDrawings.length + 1}`;
+        const paramsSnapshot = { ...this.simulator.params };
+        const pvSnapshot = this.getCurrentPvSnapshot();
+        const color = this.getNextSavedColor();
+        const xMax = this.getScaleSettings().balanceXMax;
+        this.setBalanceComputeState(true);
+        this.computeBalanceCurve(paramsSnapshot, xMax)
+            .then((points) => {
+                if (!points || points.length === 0) return;
+                this.savedDrawings.push({
+                    name,
+                    color,
+                    coCurve: points,
+                    la: {
+                        volume: pvSnapshot.laVolume,
+                        pressure: pvSnapshot.laPressure,
+                        ees: paramsSnapshot.laEes,
+                        v0: paramsSnapshot.laV0,
+                        alpha: paramsSnapshot.laAlpha,
+                        beta: paramsSnapshot.laBeta
+                    },
+                    lv: {
+                        volume: pvSnapshot.lvVolume,
+                        pressure: pvSnapshot.lvPressure,
+                        ees: paramsSnapshot.lvEes,
+                        v0: paramsSnapshot.lvV0,
+                        alpha: paramsSnapshot.lvAlpha,
+                        beta: paramsSnapshot.lvBeta
+                    }
+                });
+                this.renderSavedDrawings();
+                this.closeSaveDrawingForm();
+                this.chartManager.update(
+                    this.simulator,
+                    this.getScaleSettings(),
+                    this.calculateMetrics(),
+                    this.getWaveformVisibility(),
+                    this.getBalanceCurvesForChart(),
+                    this.savedDrawings
+                );
+            })
+            .finally(() => {
+                this.setBalanceComputeState(false);
+            });
+    }
+
+    renderSavedDrawings() {
+        const container = document.getElementById('savedDrawingList');
+        if (!container) return;
+        container.innerHTML = '';
+        this.savedDrawings.forEach((drawing, index) => {
+            const item = document.createElement('div');
+            item.className = 'saved-drawing-item';
+            const swatch = document.createElement('span');
+            swatch.className = 'saved-drawing-swatch';
+            swatch.style.background = drawing.color || this.savedDrawingColors[index % this.savedDrawingColors.length];
+            const label = document.createElement('span');
+            label.className = 'saved-drawing-label';
+            label.textContent = drawing.name;
+            const remove = document.createElement('button');
+            remove.type = 'button';
+            remove.className = 'saved-drawing-remove';
+            remove.textContent = '×';
+            remove.addEventListener('click', () => {
+                this.savedDrawings.splice(index, 1);
+                this.renderSavedDrawings();
+                this.chartManager.update(
+                    this.simulator,
+                    this.getScaleSettings(),
+                    this.calculateMetrics(),
+                    this.getWaveformVisibility(),
+                    this.getBalanceCurvesForChart(),
+                    this.savedDrawings
+                );
+            });
+            item.appendChild(swatch);
+            item.appendChild(label);
+            item.appendChild(remove);
+            container.appendChild(item);
+        });
     }
 
     resetScaleInputs() {

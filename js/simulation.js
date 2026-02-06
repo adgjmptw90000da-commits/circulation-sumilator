@@ -762,7 +762,7 @@ class CirculationSimulator {
         h.mitralFlow.push(this.state.mitralFlow);
         h.aorticFlow.push(this.state.aorticFlow);
         h.venousFlow.push(this.state.venousFlow);
-        h.venousPressure.push(this.state.vvPressure || params.pv); // 動的計算値、なければ固定値
+        h.venousPressure.push(this.state.vvPressure || this.params.pv); // 動的計算値、なければ固定値
         h.ecg.push(this.state.ecgValue || 0);
 
         if (h.time.length > this.maxHistoryLength) {

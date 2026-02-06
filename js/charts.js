@@ -352,6 +352,83 @@ class ChartManager {
         return { width, duration: this.sweepDuration * ratio };
     }
 
+    drawEDPVRLine(ctx, vMax, pMax, alpha, beta, v0, color) {
+        const width = ctx.canvas.clientWidth || ctx.canvas.width;
+        const height = ctx.canvas.clientHeight || ctx.canvas.height;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 2]);
+        ctx.beginPath();
+        for (let v = v0; v <= vMax; v += 2) {
+            const p = alpha * (Math.exp(beta * (v - v0)) - 1);
+            const x = (v / vMax) * width;
+            const y = height - (p / pMax) * height;
+            if (v === v0) {
+                ctx.moveTo(x, y);
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    drawLVESPVRLine(ctx, vMax, pMax, ees, v0, color) {
+        if (ees <= 0) return;
+        const width = ctx.canvas.clientWidth || ctx.canvas.width;
+        const height = ctx.canvas.clientHeight || ctx.canvas.height;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 2]);
+        ctx.beginPath();
+        const v1 = v0;
+        const v2 = vMax;
+        const p1 = 0;
+        const p2 = ees * (v2 - v0);
+        ctx.moveTo((v1 / vMax) * width, height - (p1 / pMax) * height);
+        ctx.lineTo((v2 / vMax) * width, height - (p2 / pMax) * height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    drawLAESPVRLine(ctx, vMax, pMax, ees, v0, color) {
+        const width = ctx.canvas.clientWidth || ctx.canvas.width;
+        const height = ctx.canvas.clientHeight || ctx.canvas.height;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 2]);
+        ctx.beginPath();
+        const espvrX0 = (v0 / vMax) * width;
+        ctx.moveTo(espvrX0, height);
+        ctx.lineTo(width, height - (ees * (vMax - v0) / pMax) * height);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    drawPVPath(ctx, vData, pData, vMax, pMax, color, lineWidth = 2, drawMarker = false) {
+        if (!vData || vData.length < 2) return;
+        const width = ctx.canvas.clientWidth || ctx.canvas.width;
+        const height = ctx.canvas.clientHeight || ctx.canvas.height;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.beginPath();
+        for (let i = 0; i < vData.length; i++) {
+            const x = (vData[i] / vMax) * width;
+            const y = height - (pData[i] / pMax) * height;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+        if (drawMarker) {
+            const lastV = vData[vData.length - 1];
+            const lastP = pData[pData.length - 1];
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.arc((lastV / vMax) * width, height - (lastP / pMax) * height, 4, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
     /**
      * PVループを描画
      */
@@ -367,72 +444,10 @@ class ChartManager {
         this.drawGrid(chart, 0, vMax, 0, pMax, '', '', false);
 
         // EDPVR曲線
-        ctx.strokeStyle = this.colors.edpvr;
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 2]);
-        ctx.beginPath();
-        for (let v = edpvrV0; v <= vMax; v += 2) {
-            const p = edpvrAlpha * (Math.exp(edpvrBeta * (v - edpvrV0)) - 1);
-            const x = (v / vMax) * width;
-            const y = height - (p / pMax) * height;
-            if (v === edpvrV0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
-        }
-        ctx.stroke();
-        ctx.setLineDash([]);
+        this.drawEDPVRLine(ctx, vMax, pMax, edpvrAlpha, edpvrBeta, edpvrV0, this.colors.edpvr);
+        this.drawLVESPVRLine(ctx, vMax, pMax, espvrEes, espvrV0, this.colors.espvr);
+        this.drawPVPath(ctx, vData, pData, vMax, pMax, color, 2, true);
 
-        // ESPVR線: P = Ees × (V - V0)
-        if (espvrEes > 0) {
-            ctx.strokeStyle = this.colors.espvr;
-            ctx.lineWidth = 1;
-            ctx.setLineDash([4, 2]);
-            ctx.beginPath();
-            const v1 = espvrV0;
-            const v2 = vMax;
-            const p1 = 0;
-            const p2 = espvrEes * (v2 - espvrV0);  // クリップなし
-            ctx.moveTo((v1 / vMax) * width, height - (p1 / pMax) * height);
-            ctx.lineTo((v2 / vMax) * width, height - (p2 / pMax) * height);  // 画面外に出てもOK
-            ctx.stroke();
-            ctx.setLineDash([]);
-        }
-
-        // PVループデータ
-        if (vData.length > 1) {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            for (let i = 0; i < vData.length; i++) {
-                const x = (vData[i] / vMax) * width;
-                const y = height - (pData[i] / pMax) * height;
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
-            }
-            ctx.stroke();
-
-            // 現在位置のマーカー
-            if (vData.length > 0) {
-                const lastV = vData[vData.length - 1];
-                const lastP = pData[pData.length - 1];
-                ctx.fillStyle = color;
-                ctx.beginPath();
-                ctx.arc(
-                    (lastV / vMax) * width,
-                    height - (lastP / pMax) * height,
-                    4, 0, Math.PI * 2
-                );
-                ctx.fill();
-            }
-        }
-
-        // 軸ラベルを最前面に描画
-        this.drawGridLabels(chart, 0, vMax, 0, pMax);
     }
 
     /**
@@ -451,68 +466,40 @@ class ChartManager {
         this.drawGrid(chart, 0, vMax, 0, pMax, '', '', false);
 
         // Reservoir EDPVR曲線（MV閉鎖時）
-        ctx.strokeStyle = this.colors.edpvr;
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 2]);
-        ctx.beginPath();
-        for (let v = edpvrV0; v <= vMax; v += 2) {
-            const p = edpvrAlpha * (Math.exp(edpvrBeta * (v - edpvrV0)) - 1);
-            const x = (v / vMax) * width;
-            const y = height - (p / pMax) * height;
-            if (v === edpvrV0) {
-                ctx.moveTo(x, y);
-            } else {
-                ctx.lineTo(x, y);
-            }
-        }
-        ctx.stroke();
-        ctx.setLineDash([]);
+        this.drawEDPVRLine(ctx, vMax, pMax, edpvrAlpha, edpvrBeta, edpvrV0, this.colors.edpvr);
+        this.drawLAESPVRLine(ctx, vMax, pMax, espvrEes, espvrV0, this.colors.espvr);
+        this.drawPVPath(ctx, vData, pData, vMax, pMax, color, 2, true);
 
-        // ESPVR線
-        ctx.strokeStyle = this.colors.espvr;
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 2]);
-        ctx.beginPath();
-        const espvrX0 = (espvrV0 / vMax) * width;
-        const espvrX1 = width;
-        ctx.moveTo(espvrX0, height);
-        ctx.lineTo(espvrX1, height - (espvrEes * (vMax - espvrV0) / pMax) * height);
-        ctx.stroke();
-        ctx.setLineDash([]);
+    }
 
-        // PVループ
-        if (vData.length > 0 && pData.length > 0) {
-            ctx.strokeStyle = color;
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            for (let i = 0; i < vData.length; i++) {
-                const x = (vData[i] / vMax) * width;
-                const y = height - (pData[i] / pMax) * height;
-                if (i === 0) {
-                    ctx.moveTo(x, y);
-                } else {
-                    ctx.lineTo(x, y);
-                }
-            }
-            ctx.stroke();
+    drawSavedLAPVLoops(chart, savedDrawings, vMax, pMax) {
+        if (!chart || !Array.isArray(savedDrawings) || savedDrawings.length === 0) return;
+        const { ctx } = chart;
+        savedDrawings.forEach((drawing) => {
+            if (!drawing.la) return;
+            const color = drawing.color || this.colors.la;
+            ctx.save();
+            ctx.globalAlpha = 0.7;
+            this.drawEDPVRLine(ctx, vMax, pMax, drawing.la.alpha, drawing.la.beta, drawing.la.v0, color);
+            this.drawLAESPVRLine(ctx, vMax, pMax, drawing.la.ees, drawing.la.v0, color);
+            this.drawPVPath(ctx, drawing.la.volume, drawing.la.pressure, vMax, pMax, color, 1.6, false);
+            ctx.restore();
+        });
+    }
 
-            // 現在位置のマーカー
-            if (vData.length > 0) {
-                const lastV = vData[vData.length - 1];
-                const lastP = pData[pData.length - 1];
-                ctx.fillStyle = color;
-                ctx.beginPath();
-                ctx.arc(
-                    (lastV / vMax) * width,
-                    height - (lastP / pMax) * height,
-                    4, 0, Math.PI * 2
-                );
-                ctx.fill();
-            }
-        }
-
-        // 軸ラベルを最前面に描画
-        this.drawGridLabels(chart, 0, vMax, 0, pMax);
+    drawSavedLVPVLoops(chart, savedDrawings, vMax, pMax) {
+        if (!chart || !Array.isArray(savedDrawings) || savedDrawings.length === 0) return;
+        const { ctx } = chart;
+        savedDrawings.forEach((drawing) => {
+            if (!drawing.lv) return;
+            const color = drawing.color || this.colors.lv;
+            ctx.save();
+            ctx.globalAlpha = 0.7;
+            this.drawEDPVRLine(ctx, vMax, pMax, drawing.lv.alpha, drawing.lv.beta, drawing.lv.v0, color);
+            this.drawLVESPVRLine(ctx, vMax, pMax, drawing.lv.ees, drawing.lv.v0, color);
+            this.drawPVPath(ctx, drawing.lv.volume, drawing.lv.pressure, vMax, pMax, color, 1.6, false);
+            ctx.restore();
+        });
     }
 
     /**
@@ -521,146 +508,74 @@ class ChartManager {
     drawBalanceChart(chart, simulator, scaleSettings = {}, balanceCurve = null) {
         if (!chart) return;
         const { ctx, width, height } = chart;
-        const state = simulator.getState();
-        const params = simulator.params;
-        const history = simulator.getHistory();
 
         ctx.fillStyle = '#000000';
         ctx.fillRect(0, 0, width, height);
 
-        const rv = Math.max(1e-6, params.rv);
-        // VR曲線はSVR変化で動かさない前提（Pmsfは固定）
-        const pmsf = Math.max(0, params.pv);
         const xMin = 0;
         const xMax = Math.max(5, scaleSettings.balanceXMax || 20);
 
-        const cycleDuration = 60 / (params.hr || 75);
-        const samplesPerCycle = Math.max(2, Math.floor(cycleDuration / SIM_CONFIG.dt));
-        const recentLAP = history.laPressure.slice(-samplesPerCycle);
-        const recentAoFlow = history.aorticFlow.slice(-samplesPerCycle);
-        const mean = (arr, fallback = 0) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : fallback);
-        const meanLAP = mean(recentLAP, state.laPressure);
-        const meanCO = mean(recentAoFlow, 0) * 60 / 1000; // L/min
+        let yMax = Math.max(4, scaleSettings.balanceYMax || 12);
+        const curves = [];
 
-        const steps = 80;
-        const vrPoints = [];
-        const coPoints = [];
-        const yMax = Math.max(4, scaleSettings.balanceYMax || 12);
-        const vrAt = (pra) => Math.max(0, (pmsf - pra) / rv) * 60 / 1000;
-
-        for (let i = 0; i <= steps; i++) {
-            const pra = xMin + (xMax - xMin) * i / steps;
-            vrPoints.push({ x: pra, y: vrAt(pra) });
-        }
-
-        if (Array.isArray(balanceCurve) && balanceCurve.length > 1) {
-            balanceCurve.forEach((pt) => {
-                if (pt.x >= xMin && pt.x <= xMax) {
-                    coPoints.push({ x: pt.x, y: pt.y });
+        if (Array.isArray(balanceCurve) && balanceCurve.length > 0) {
+            const first = balanceCurve[0];
+            if (first && Array.isArray(first.points)) {
+                balanceCurve.forEach((curve) => {
+                    if (!curve || !Array.isArray(curve.points)) return;
+                    const points = curve.points.filter((pt) => pt.x >= xMin && pt.x <= xMax);
+                    if (points.length === 0) return;
+                    curves.push({ points, color: curve.color });
+                });
+            } else if (first && typeof first.x === 'number') {
+                const points = balanceCurve.filter((pt) => pt.x >= xMin && pt.x <= xMax);
+                if (points.length > 0) {
+                    curves.push({ points, color: this.colors.coCurve });
                 }
-            });
-        }
-
-        if (coPoints.length === 0) {
-            const ees = Math.max(0.1, params.lvEes);
-            const v0 = params.lvV0;
-            const alpha = Math.max(0.001, params.lvAlpha);
-            const beta = Math.max(0.001, params.lvBeta);
-            const svrMmHg = params.svr / 1333;
-            const kAfterload = svrMmHg * ((params.hr || 75) / 60);
-            for (let i = 0; i <= steps; i++) {
-                const pra = xMin + (xMax - xMin) * i / steps;
-                const p = Math.max(0, pra);
-                const edv = v0 + Math.log(p / alpha + 1) / beta;
-                const map = (kAfterload * (edv - v0)) / (1 + kAfterload / ees);
-                const esv = v0 + Math.max(0, map) / ees;
-                const sv = Math.max(0, edv - esv);
-                const co = sv * (params.hr || 75) / 1000; // L/min
-                coPoints.push({ x: pra, y: co });
             }
         }
 
         this.drawGrid(chart, xMin, xMax, 0, yMax);
 
-        ctx.strokeStyle = this.colors.vrCurve;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        vrPoints.forEach((pt, idx) => {
-            const x = (pt.x - xMin) / (xMax - xMin) * width;
-            const y = height - (pt.y / yMax) * height;
-            if (idx === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-
-        ctx.strokeStyle = this.colors.coCurve;
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        coPoints.forEach((pt, idx) => {
-            const x = (pt.x - xMin) / (xMax - xMin) * width;
-            const y = height - (pt.y / yMax) * height;
-            if (idx === 0) ctx.moveTo(x, y);
-            else ctx.lineTo(x, y);
-        });
-        ctx.stroke();
-
-        let eq = { x: meanLAP, y: meanCO };
-        for (let i = 1; i < coPoints.length; i++) {
-            const d0 = coPoints[i - 1].y - vrAt(coPoints[i - 1].x);
-            const d1 = coPoints[i].y - vrAt(coPoints[i].x);
-            if (d0 === 0) {
-                eq = { x: coPoints[i - 1].x, y: coPoints[i - 1].y };
-                break;
-            }
-            if (d0 * d1 < 0) {
-                const t = d0 / (d0 - d1);
-                const x = coPoints[i - 1].x + t * (coPoints[i].x - coPoints[i - 1].x);
-                const y = coPoints[i - 1].y + t * (coPoints[i].y - coPoints[i - 1].y);
-                eq = { x, y };
-                break;
-            }
+        if (curves.length > 0) {
+            curves.forEach((curve) => {
+                ctx.strokeStyle = curve.color || this.colors.coCurve;
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                curve.points.forEach((pt, idx) => {
+                    const x = (pt.x - xMin) / (xMax - xMin) * width;
+                    const y = height - (pt.y / yMax) * height;
+                    if (idx === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            });
+        } else {
+            ctx.fillStyle = this.colors.text;
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('＋ 曲線追加で描画', width / 2, height / 2);
         }
-
-        const eqX = (eq.x - xMin) / (xMax - xMin) * width;
-        const eqY = height - (eq.y / yMax) * height;
-        ctx.setLineDash([4, 4]);
-        ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-        ctx.beginPath();
-        ctx.moveTo(eqX, height);
-        ctx.lineTo(eqX, eqY);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(0, eqY);
-        ctx.lineTo(eqX, eqY);
-        ctx.stroke();
-        ctx.setLineDash([]);
-
-        ctx.fillStyle = this.colors.eqPoint;
-        ctx.beginPath();
-        ctx.arc(eqX, eqY, 4, 0, Math.PI * 2);
-        ctx.fill();
 
         ctx.fillStyle = this.colors.text;
         ctx.font = '10px sans-serif';
         ctx.textAlign = 'left';
-        ctx.fillText('LAP (mmHg)', 4, height - 4);
+        ctx.fillText('Pmsf / Pv (mmHg)', 4, height - 4);
         ctx.save();
         ctx.translate(8, 12);
         ctx.rotate(-Math.PI / 2);
-        ctx.fillText('CO / VR (L/min)', 0, 0);
+        ctx.fillText('CO (L/min)', 0, 0);
         ctx.restore();
 
         ctx.textAlign = 'right';
-        ctx.fillStyle = this.colors.vrCurve;
-        ctx.fillText('VR', width - 6, 12);
         ctx.fillStyle = this.colors.coCurve;
-        ctx.fillText('CO', width - 6, 24);
+        ctx.fillText('CO', width - 6, 12);
     }
 
     /**
      * すべてのチャートを更新
      */
-    update(simulator, scaleSettings, metrics = null, waveformVisibility = {}, balanceCurve = null) {
+    update(simulator, scaleSettings, metrics = null, waveformVisibility = {}, balanceCurve = null, savedDrawings = []) {
         const history = simulator.getHistory();
         const state = simulator.getState();
         const params = simulator.params;
@@ -811,6 +726,8 @@ class ChartManager {
             params.laAlpha, params.laBeta, params.laV0,
             this.colors.la
         );
+        this.drawSavedLAPVLoops(this.charts.laPV, savedDrawings, laVMax, laPMax);
+        this.drawGridLabels(this.charts.laPV, 0, laVMax, 0, laPMax);
 
         // === 左室PVループ ===
         const lvVMax = scaleSettings.lvVMax || 150;
@@ -824,6 +741,8 @@ class ChartManager {
             params.lvAlpha, params.lvBeta, params.lvV0,
             this.colors.lv
         );
+        this.drawSavedLVPVLoops(this.charts.lvPV, savedDrawings, lvVMax, lvPMax);
+        this.drawGridLabels(this.charts.lvPV, 0, lvVMax, 0, lvPMax);
 
         // 指標の表示（ループ内）
         if (metrics && this.charts.lvPV) {
