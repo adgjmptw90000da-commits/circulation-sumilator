@@ -54,6 +54,7 @@ class App {
         this.setupNumberSteppers();
         this.setParamsTab(this.activeParamsTab);
         this.renderSavedDrawings();
+        this.setAdminLoggedIn(false);
     }
 
     bindEvents() {
@@ -185,13 +186,21 @@ class App {
             presetApplyBtn.addEventListener('click', () => this.applySelectedPreset());
         }
 
-        const presetLoginBtn = document.getElementById('presetAdminLoginBtn');
-        if (presetLoginBtn) {
-            presetLoginBtn.addEventListener('click', () => this.loginPresetAdmin());
+        const adminLoginOpenBtn = document.getElementById('adminLoginOpenBtn');
+        if (adminLoginOpenBtn) {
+            adminLoginOpenBtn.addEventListener('click', () => this.handleAdminButton());
         }
-        const presetLogoutBtn = document.getElementById('presetAdminLogoutBtn');
-        if (presetLogoutBtn) {
-            presetLogoutBtn.addEventListener('click', () => this.logoutPresetAdmin());
+        const adminLoginCloseBtn = document.getElementById('adminLoginCloseBtn');
+        if (adminLoginCloseBtn) {
+            adminLoginCloseBtn.addEventListener('click', () => this.closeAdminModal());
+        }
+        const adminLoginCancelBtn = document.getElementById('adminLoginCancelBtn');
+        if (adminLoginCancelBtn) {
+            adminLoginCancelBtn.addEventListener('click', () => this.closeAdminModal());
+        }
+        const adminLoginSubmitBtn = document.getElementById('adminLoginSubmitBtn');
+        if (adminLoginSubmitBtn) {
+            adminLoginSubmitBtn.addEventListener('click', () => this.loginAdmin());
         }
         const presetSaveBtn = document.getElementById('presetSaveBtn');
         if (presetSaveBtn) {
@@ -398,28 +407,65 @@ class App {
         if (descInput) descInput.value = preset?.description || '';
     }
 
-    loginPresetAdmin() {
-        const tokenInput = document.getElementById('presetAdminToken');
-        const token = tokenInput ? tokenInput.value.trim() : '';
+    handleAdminButton() {
+        if (this.adminToken) {
+            if (confirm('管理者ログアウトしますか？')) {
+                this.logoutAdmin();
+            }
+            return;
+        }
+        this.openAdminModal();
+    }
+
+    openAdminModal() {
+        const modal = document.getElementById('adminLoginModal');
+        if (modal) modal.hidden = false;
+        const input = document.getElementById('adminLoginInput');
+        if (input) {
+            input.value = '';
+            input.focus();
+        }
+    }
+
+    closeAdminModal() {
+        const modal = document.getElementById('adminLoginModal');
+        if (modal) modal.hidden = true;
+    }
+
+    setAdminLoggedIn(isLoggedIn) {
+        const panel = document.getElementById('presetAdminPanel');
+        if (panel) panel.hidden = !isLoggedIn;
+        const btn = document.getElementById('adminLoginOpenBtn');
+        if (btn) btn.textContent = isLoggedIn ? '👤 管理者' : '👤 一般';
+    }
+
+    async loginAdmin() {
+        const input = document.getElementById('adminLoginInput');
+        const token = input ? input.value.trim() : '';
         if (!token) {
             alert('管理者パスワードを入力してください。');
             return;
         }
-        this.adminToken = token;
-        const auth = document.getElementById('presetAdminAuth');
-        const panel = document.getElementById('presetAdminPanel');
-        if (auth) auth.hidden = true;
-        if (panel) panel.hidden = false;
+        try {
+            const res = await fetch('/api/presets/check', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-token': token
+                }
+            });
+            if (!res.ok) throw new Error('auth failed');
+            this.adminToken = token;
+            this.setAdminLoggedIn(true);
+            this.closeAdminModal();
+        } catch (err) {
+            alert('パスワードが違います。');
+        }
     }
 
-    logoutPresetAdmin() {
+    logoutAdmin() {
         this.adminToken = '';
-        const tokenInput = document.getElementById('presetAdminToken');
-        if (tokenInput) tokenInput.value = '';
-        const auth = document.getElementById('presetAdminAuth');
-        const panel = document.getElementById('presetAdminPanel');
-        if (auth) auth.hidden = false;
-        if (panel) panel.hidden = true;
+        this.setAdminLoggedIn(false);
     }
 
     async presetAdminRequest(method, body) {

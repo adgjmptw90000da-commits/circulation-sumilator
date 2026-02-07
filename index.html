@@ -18,6 +18,7 @@
             <div class="controls">
                 <button id="startBtn" class="btn btn-primary">▶ スタート</button>
                 <button id="resetBtn" class="btn btn-secondary">↺ リセット</button>
+                <button id="adminLoginOpenBtn" class="btn btn-secondary admin-btn">👤 一般</button>
                 <div class="speed-control">
                     <label>速度: <span id="speedValue" class="speed-value">1</span>x</label>
                     <input type="range" id="speedSlider" min="0" max="100" value="50" step="1">
@@ -141,10 +142,6 @@
                                         </div>
                                     </div>
                                     <div class="preset-admin">
-                                        <div class="preset-admin-auth" id="presetAdminAuth">
-                                            <input type="password" id="presetAdminToken" placeholder="管理者パスワード">
-                                            <button type="button" id="presetAdminLoginBtn" class="btn btn-secondary">管理者モード</button>
-                                        </div>
                                         <div class="preset-admin-panel" id="presetAdminPanel" hidden>
                                             <div class="preset-admin-fields">
                                                 <input type="text" id="presetName" placeholder="プリセット名">
@@ -154,7 +151,6 @@
                                                 <button type="button" id="presetSaveBtn" class="btn btn-primary">新規保存</button>
                                                 <button type="button" id="presetUpdateBtn" class="btn btn-secondary">更新</button>
                                                 <button type="button" id="presetDeleteBtn" class="btn btn-secondary">削除</button>
-                                                <button type="button" id="presetAdminLogoutBtn" class="btn btn-secondary">ログアウト</button>
                                             </div>
                                             <div class="preset-admin-hint">
                                                 現在の設定をプリセットとして保存/更新します。
@@ -532,6 +528,26 @@
 
 
             </main>
+        </div>
+    </div>
+
+    <div id="adminLoginModal" class="modal-overlay admin-modal" hidden>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>管理者ログイン</h3>
+                <button type="button" id="adminLoginCloseBtn" class="btn btn-secondary">閉じる</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-section">
+                    <label>パスワード
+                        <input type="password" id="adminLoginInput" placeholder="管理者パスワード">
+                    </label>
+                </div>
+                <div class="modal-section admin-modal-actions">
+                    <button type="button" id="adminLoginSubmitBtn" class="btn btn-primary">ログイン</button>
+                    <button type="button" id="adminLoginCancelBtn" class="btn btn-secondary">キャンセル</button>
+                </div>
+            </div>
         </div>
     </div>
 

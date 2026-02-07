@@ -439,6 +439,10 @@ body {
     background: rgba(10, 18, 38, 0.35);
 }
 
+.preset-admin-panel[hidden] {
+    display: none !important;
+}
+
 .preset-admin-fields {
     display: flex;
     flex-direction: column;
@@ -470,6 +474,38 @@ body {
 .preset-admin-hint {
     font-size: 0.68rem;
     color: var(--text-secondary);
+}
+
+.admin-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.admin-modal .modal-content {
+    width: min(420px, 100%);
+}
+
+.admin-modal .modal-section label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.admin-modal input[type="password"] {
+    padding: 0.35rem 0.45rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-primary);
+}
+
+.admin-modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
 }
 
 .param-row input {
