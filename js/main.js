@@ -121,6 +121,10 @@ class App {
         if (addCurveBtn) {
             addCurveBtn.addEventListener('click', () => this.addBalanceCurve());
         }
+        const drawCurveBtn = document.getElementById('drawBalanceCurveBtn');
+        if (drawCurveBtn) {
+            drawCurveBtn.addEventListener('click', () => this.drawCurrentBalanceCurve());
+        }
         const clearCurveBtn = document.getElementById('clearBalanceCurvesBtn');
         if (clearCurveBtn) {
             clearCurveBtn.addEventListener('click', () => this.clearBalanceCurves());
@@ -799,6 +803,11 @@ class App {
             addBtn.disabled = isComputing;
             addBtn.textContent = isComputing ? '計算中…' : '＋ 曲線追加';
         }
+        const drawBtn = document.getElementById('drawBalanceCurveBtn');
+        if (drawBtn) {
+            drawBtn.disabled = isComputing;
+            drawBtn.textContent = isComputing ? '計算中…' : '曲線を表示';
+        }
         const saveBtn = document.getElementById('saveDrawingBtn');
         if (saveBtn) {
             saveBtn.disabled = isComputing;
@@ -826,6 +835,31 @@ class App {
                 this.balanceCurves.push({ name, points, color });
                 if (input) input.value = '';
                 this.renderBalanceLegend();
+                this.chartManager.update(
+                    this.simulator,
+                    this.getScaleSettings(),
+                    this.calculateMetrics(),
+                    this.getWaveformVisibility(),
+                    this.getBalanceCurvesForChart(),
+                    this.savedDrawings
+                );
+            })
+            .finally(() => {
+                this.setBalanceComputeState(false);
+            });
+    }
+
+    drawCurrentBalanceCurve() {
+        if (this.isBalanceComputing) return;
+        const paramsSnapshot = { ...this.simulator.params };
+        const xMax = this.getScaleSettings().balanceXMax;
+        this.setBalanceComputeState(true);
+        this.computeBalanceCurve(paramsSnapshot, xMax)
+            .then((points) => {
+                if (!points || points.length === 0) return;
+                const existing = this.balanceCurves.find((curve) => curve.name === '現在');
+                const color = existing?.color || this.balanceCurveColors[0];
+                this.balanceCurves = [{ name: '現在', points, color }];
                 this.chartManager.update(
                     this.simulator,
                     this.getScaleSettings(),
