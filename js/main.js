@@ -55,6 +55,7 @@ class App {
         this.setParamsTab(this.activeParamsTab);
         this.renderSavedDrawings();
         this.setAdminLoggedIn(false);
+        this.restoreAdminSession();
     }
 
     bindEvents() {
@@ -461,6 +462,7 @@ class App {
             this.adminToken = token;
             this.setAdminLoggedIn(true);
             this.closeAdminModal();
+            sessionStorage.setItem('adminToken', token);
         } catch (err) {
             alert('パスワードが違います。');
         }
@@ -469,6 +471,26 @@ class App {
     logoutAdmin() {
         this.adminToken = '';
         this.setAdminLoggedIn(false);
+        sessionStorage.removeItem('adminToken');
+    }
+
+    async restoreAdminSession() {
+        const storedToken = sessionStorage.getItem('adminToken');
+        if (!storedToken) return;
+        try {
+            const res = await fetch('/api/presets/check', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'x-admin-token': storedToken
+                }
+            });
+            if (!res.ok) throw new Error('auth failed');
+            this.adminToken = storedToken;
+            this.setAdminLoggedIn(true);
+        } catch (err) {
+            sessionStorage.removeItem('adminToken');
+        }
     }
 
     async presetAdminRequest(method, body) {
