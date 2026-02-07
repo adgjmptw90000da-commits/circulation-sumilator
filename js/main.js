@@ -175,15 +175,14 @@ class App {
             presetSelect.addEventListener('change', (e) => {
                 const id = e.target.value;
                 this.activePresetId = id;
-                if (!id) return;
                 const preset = this.presets.find((item) => item.id === id);
-                if (preset && preset.params) {
-                    this.simulator.updateParams({ ...preset.params });
-                    this.syncParamsToUI();
-                    this.redrawNow();
-                    this.fillPresetForm(preset);
-                }
+                this.fillPresetForm(preset);
+                this.updatePresetApplyState();
             });
+        }
+        const presetApplyBtn = document.getElementById('presetApplyBtn');
+        if (presetApplyBtn) {
+            presetApplyBtn.addEventListener('click', () => this.applySelectedPreset());
         }
 
         const presetLoginBtn = document.getElementById('presetAdminLoginBtn');
@@ -374,6 +373,22 @@ class App {
         if (this.activePresetId) {
             select.value = this.activePresetId;
         }
+        this.updatePresetApplyState();
+    }
+
+    updatePresetApplyState() {
+        const btn = document.getElementById('presetApplyBtn');
+        if (!btn) return;
+        btn.disabled = !this.activePresetId;
+    }
+
+    applySelectedPreset() {
+        if (!this.activePresetId) return;
+        const preset = this.presets.find((item) => item.id === this.activePresetId);
+        if (!preset || !preset.params) return;
+        this.simulator.updateParams({ ...preset.params });
+        this.syncParamsToUI();
+        this.redrawNow();
     }
 
     fillPresetForm(preset) {
@@ -475,6 +490,7 @@ class App {
             this.activePresetId = '';
             const select = document.getElementById('presetSelect');
             if (select) select.value = '';
+            this.updatePresetApplyState();
         } catch (err) {
             alert('更新に失敗しました。');
         }
@@ -497,6 +513,7 @@ class App {
             const select = document.getElementById('presetSelect');
             if (select) select.value = '';
             this.fillPresetForm({ name: '', description: '' });
+            this.updatePresetApplyState();
         } catch (err) {
             alert('削除に失敗しました。');
         }

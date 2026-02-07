@@ -133,9 +133,12 @@
                                 <div class="param-content">
                                     <div class="param-row">
                                         <label>疾患プリセット</label>
-                                        <select id="presetSelect">
-                                            <option value="">読み込み中...</option>
-                                        </select>
+                                        <div class="preset-apply">
+                                            <select id="presetSelect">
+                                                <option value="">読み込み中...</option>
+                                            </select>
+                                            <button type="button" id="presetApplyBtn" class="btn btn-secondary" disabled>適応</button>
+                                        </div>
                                     </div>
                                     <div class="preset-admin">
                                         <div class="preset-admin-auth" id="presetAdminAuth">

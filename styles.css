@@ -394,6 +394,24 @@ body {
     gap: 0.5rem;
 }
 
+.preset-apply {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.4rem;
+    flex: 1;
+}
+
+.preset-apply select {
+    min-width: 0;
+    flex: 1;
+}
+
+.preset-apply .btn {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.72rem;
+}
+
 .preset-admin-auth {
     display: flex;
     gap: 0.4rem;
