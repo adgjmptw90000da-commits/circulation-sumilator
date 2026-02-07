@@ -19,7 +19,7 @@ class App {
         this.isBalanceComputing = false;
         this.savedDrawings = [];
         this.savedDrawingColors = ['#ff6b6b', '#5c7cfa', '#51cf66', '#ffd43b', '#ff922b'];
-        this.activeParamsTab = 'params';
+        this.activeParamsTab = 'simple';
         this.isSaveNameComposing = false;
         this.resizeRaf = 0;
         this.resizeObserver = null;
@@ -46,6 +46,7 @@ class App {
         this.syncSpeedFromUI();
         this.applyPressureVitalVisibility();
         this.updateParamGroupVisibility();
+        this.updateSimpleGroupVisibility();
         this.setupNumberSteppers();
         this.setParamsTab(this.activeParamsTab);
         this.renderSavedDrawings();
@@ -70,6 +71,10 @@ class App {
         const paramGroupSelect = document.getElementById('paramGroupSelect');
         if (paramGroupSelect) {
             paramGroupSelect.addEventListener('change', () => this.updateParamGroupVisibility());
+        }
+        const simpleGroupSelect = document.getElementById('simpleGroupSelect');
+        if (simpleGroupSelect) {
+            simpleGroupSelect.addEventListener('change', () => this.updateSimpleGroupVisibility());
         }
         document.querySelectorAll('.params-tab').forEach((tab) => {
             tab.addEventListener('click', () => {
@@ -105,6 +110,7 @@ class App {
 
         // パラメータ入力
         this.bindParamInputs();
+        this.bindSimpleInputs();
 
         // リサイズ対応
         window.addEventListener('resize', () => {
@@ -215,7 +221,9 @@ class App {
                 const decimals = getDecimals(step);
                 const currentRaw = parseFloat(input.value);
                 const base = isNaN(currentRaw) ? 0 : currentRaw;
-                let next = base + step * direction;
+                const invert = input.dataset.invertStep === 'true';
+                const signedDirection = invert ? -direction : direction;
+                let next = base + step * signedDirection;
                 next = clamp(next);
                 input.value = decimals > 0 ? next.toFixed(decimals) : next.toString();
                 input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -268,6 +276,9 @@ class App {
         if (tab === 'params') {
             this.updateParamGroupVisibility();
         }
+        if (tab === 'simple') {
+            this.updateSimpleGroupVisibility();
+        }
     }
 
     updateParamGroupVisibility() {
@@ -277,6 +288,16 @@ class App {
         const value = select.value;
         groups.forEach((group) => {
             group.classList.toggle('is-active', group.dataset.group === value);
+        });
+    }
+
+    updateSimpleGroupVisibility() {
+        const select = document.getElementById('simpleGroupSelect');
+        const groups = document.querySelectorAll('.simple-group');
+        if (!select || groups.length === 0) return;
+        const value = select.value;
+        groups.forEach((group) => {
+            group.classList.toggle('is-active', group.dataset.simpleGroup === value);
         });
     }
 
@@ -377,6 +398,11 @@ class App {
     }
 
     bindParamInputs() {
+        const applyParamUpdate = (paramKey, value) => {
+            this.simulator.updateParams({ [paramKey]: value });
+            this.syncParamsToUI();
+            this.redrawNow();
+        };
         const paramMapping = {
             'param-hr': 'hr',
             'param-pr': 'prInterval',
@@ -412,8 +438,7 @@ class App {
                 input.addEventListener('change', (e) => {
                     const value = parseFloat(e.target.value);
                     if (!isNaN(value)) {
-                        this.simulator.updateParams({ [paramKey]: value });
-                        this.redrawNow();
+                        applyParamUpdate(paramKey, value);
                     }
                 });
             }
@@ -423,8 +448,7 @@ class App {
         if (mrSelect) {
             mrSelect.addEventListener('change', (e) => {
                 const enabled = e.target.value === 'on';
-                this.simulator.updateParams({ mrEnabled: enabled });
-                this.redrawNow();
+                applyParamUpdate('mrEnabled', enabled);
             });
         }
 
@@ -432,8 +456,7 @@ class App {
         if (msSelect) {
             msSelect.addEventListener('change', (e) => {
                 const enabled = e.target.value === 'on';
-                this.simulator.updateParams({ msEnabled: enabled });
-                this.redrawNow();
+                applyParamUpdate('msEnabled', enabled);
             });
         }
 
@@ -441,8 +464,7 @@ class App {
         if (arSelect) {
             arSelect.addEventListener('change', (e) => {
                 const enabled = e.target.value === 'on';
-                this.simulator.updateParams({ arEnabled: enabled });
-                this.redrawNow();
+                applyParamUpdate('arEnabled', enabled);
             });
         }
 
@@ -450,8 +472,7 @@ class App {
         if (asSelect) {
             asSelect.addEventListener('change', (e) => {
                 const enabled = e.target.value === 'on';
-                this.simulator.updateParams({ asEnabled: enabled });
-                this.redrawNow();
+                applyParamUpdate('asEnabled', enabled);
             });
         }
 
@@ -459,10 +480,71 @@ class App {
         if (laContractionSelect) {
             laContractionSelect.addEventListener('change', (e) => {
                 const enabled = e.target.value === 'on';
-                this.simulator.updateParams({ laContractionEnabled: enabled });
-                this.redrawNow();
+                applyParamUpdate('laContractionEnabled', enabled);
             });
         }
+    }
+
+    bindSimpleInputs() {
+        const applyParamUpdate = (paramKey, value) => {
+            this.simulator.updateParams({ [paramKey]: value });
+            this.syncParamsToUI();
+            this.redrawNow();
+        };
+
+        const simpleMapping = {
+            'simple-hr': 'hr',
+            'simple-pv': 'pv',
+            'simple-lv-ees': 'lvEes',
+            'simple-svr': 'svr',
+            'simple-ca': 'ca'
+        };
+
+        for (const [inputId, paramKey] of Object.entries(simpleMapping)) {
+            const input = document.getElementById(inputId);
+            if (input) {
+                input.addEventListener('change', (e) => {
+                    const value = parseFloat(e.target.value);
+                    if (!isNaN(value)) {
+                        applyParamUpdate(paramKey, value);
+                    }
+                });
+            }
+        }
+
+        const rhythmSelect = document.getElementById('simple-rhythm');
+        if (rhythmSelect) {
+            rhythmSelect.addEventListener('change', (e) => {
+                const enabled = e.target.value === 'sinus';
+                applyParamUpdate('laContractionEnabled', enabled);
+            });
+        }
+
+        const valveConfig = {
+            as: { enabledKey: 'asEnabled', valueKey: 'asAva', levels: { mild: 1.7, moderate: 1.2, severe: 0.7 } },
+            ar: { enabledKey: 'arEnabled', valueKey: 'arEroa', levels: { mild: 0.3, moderate: 0.5, severe: 0.8 } },
+            ms: { enabledKey: 'msEnabled', valueKey: 'msMva', levels: { mild: 1.7, moderate: 1.2, severe: 0.7 } },
+            mr: { enabledKey: 'mrEnabled', valueKey: 'mrEroa', levels: { mild: 0.1, moderate: 0.3, severe: 0.5 } }
+        };
+
+        Object.entries(valveConfig).forEach(([key, config]) => {
+            const select = document.getElementById(`simple-${key}`);
+            if (!select) return;
+            select.addEventListener('change', (e) => {
+                const value = e.target.value;
+                if (value === 'none') {
+                    this.simulator.updateParams({ [config.enabledKey]: false });
+                } else {
+                    const area = config.levels[value];
+                    this.simulator.updateParams({
+                        [config.enabledKey]: true,
+                        [config.valueKey]: area
+                    });
+                }
+                this.syncParamsToUI();
+                this.redrawNow();
+            });
+        });
     }
 
     syncParamsToUI() {
@@ -470,6 +552,22 @@ class App {
         const setInput = (id, value) => {
             const el = document.getElementById(id);
             if (el) el.value = value;
+        };
+        const setSelect = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.value = value;
+        };
+        const pickSeverity = (value, levels) => {
+            let bestKey = 'mild';
+            let bestDiff = Infinity;
+            Object.entries(levels).forEach(([key, level]) => {
+                const diff = Math.abs(value - level);
+                if (diff < bestDiff) {
+                    bestDiff = diff;
+                    bestKey = key;
+                }
+            });
+            return bestKey;
         };
 
         setInput('param-hr', params.hr);
@@ -518,6 +616,22 @@ class App {
         setInput('param-ca', params.ca);
         setInput('param-ao-area', params.aoArea);
         setInput('param-svr', params.svr);
+
+        setInput('simple-hr', params.hr);
+        setInput('simple-pv', params.pv);
+        setInput('simple-lv-ees', params.lvEes);
+        setInput('simple-svr', params.svr);
+        setInput('simple-ca', params.ca);
+        setSelect('simple-rhythm', params.laContractionEnabled ? 'sinus' : 'junctional');
+
+        const asValue = params.asEnabled ? pickSeverity(params.asAva, { mild: 1.7, moderate: 1.2, severe: 0.7 }) : 'none';
+        const arValue = params.arEnabled ? pickSeverity(params.arEroa, { mild: 0.3, moderate: 0.5, severe: 0.8 }) : 'none';
+        const msValue = params.msEnabled ? pickSeverity(params.msMva, { mild: 1.7, moderate: 1.2, severe: 0.7 }) : 'none';
+        const mrValue = params.mrEnabled ? pickSeverity(params.mrEroa, { mild: 0.1, moderate: 0.3, severe: 0.5 }) : 'none';
+        setSelect('simple-as', asValue);
+        setSelect('simple-ar', arValue);
+        setSelect('simple-ms', msValue);
+        setSelect('simple-mr', mrValue);
     }
 
     getScaleSettings() {

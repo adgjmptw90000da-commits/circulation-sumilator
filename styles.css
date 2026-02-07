@@ -287,6 +287,14 @@ body {
     display: block;
 }
 
+.simple-group {
+    display: none;
+}
+
+.simple-group.is-active {
+    display: block;
+}
+
 .params-tabs {
     display: flex;
     gap: 0.4rem;
@@ -367,6 +375,10 @@ body {
     font-size: 0.75rem;
     color: var(--text-secondary);
     white-space: nowrap;
+}
+
+.simple-group .param-row label {
+    white-space: normal;
 }
 
 .param-row input {
