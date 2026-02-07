@@ -387,6 +387,73 @@ body {
     line-height: 1.4;
 }
 
+.preset-admin {
+    margin-top: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.preset-admin-auth {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.preset-admin-auth input {
+    flex: 1;
+    min-width: 120px;
+    padding: 0.3rem 0.45rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+}
+
+.preset-admin-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem;
+    background: rgba(10, 18, 38, 0.35);
+}
+
+.preset-admin-fields {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.preset-admin-fields input,
+.preset-admin-fields textarea {
+    width: 100%;
+    padding: 0.3rem 0.45rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+}
+
+.preset-admin-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.preset-admin-actions .btn {
+    padding: 0.28rem 0.45rem;
+    font-size: 0.72rem;
+}
+
+.preset-admin-hint {
+    font-size: 0.68rem;
+    color: var(--text-secondary);
+}
+
 .param-row input {
     width: 82px;
     padding: 0.25rem 0.4rem;

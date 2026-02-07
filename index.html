@@ -44,6 +44,7 @@
                                 <select id="simpleGroupSelect">
                                     <option value="basic" selected>基本項目</option>
                                     <option value="valvular">弁膜症</option>
+                                    <option value="preset">疾患プリセット</option>
                                 </select>
                             </div>
 
@@ -124,6 +125,38 @@
                                             <option value="moderate">中等症</option>
                                             <option value="severe">重症</option>
                                         </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="param-section simple-group" data-simple-group="preset">
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label>疾患プリセット</label>
+                                        <select id="presetSelect">
+                                            <option value="">読み込み中...</option>
+                                        </select>
+                                    </div>
+                                    <div class="preset-admin">
+                                        <div class="preset-admin-auth" id="presetAdminAuth">
+                                            <input type="password" id="presetAdminToken" placeholder="管理者パスワード">
+                                            <button type="button" id="presetAdminLoginBtn" class="btn btn-secondary">管理者モード</button>
+                                        </div>
+                                        <div class="preset-admin-panel" id="presetAdminPanel" hidden>
+                                            <div class="preset-admin-fields">
+                                                <input type="text" id="presetName" placeholder="プリセット名">
+                                                <textarea id="presetDescription" rows="2" placeholder="説明（任意）"></textarea>
+                                            </div>
+                                            <div class="preset-admin-actions">
+                                                <button type="button" id="presetSaveBtn" class="btn btn-primary">新規保存</button>
+                                                <button type="button" id="presetUpdateBtn" class="btn btn-secondary">更新</button>
+                                                <button type="button" id="presetDeleteBtn" class="btn btn-secondary">削除</button>
+                                                <button type="button" id="presetAdminLogoutBtn" class="btn btn-secondary">ログアウト</button>
+                                            </div>
+                                            <div class="preset-admin-hint">
+                                                現在の設定をプリセットとして保存/更新します。
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

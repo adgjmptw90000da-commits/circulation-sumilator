@@ -23,6 +23,9 @@ class App {
         this.isSaveNameComposing = false;
         this.resizeRaf = 0;
         this.resizeObserver = null;
+        this.presets = [];
+        this.activePresetId = '';
+        this.adminToken = '';
 
         this.initUI();
         this.bindEvents();
@@ -38,6 +41,7 @@ class App {
             this.savedDrawings
         );
         this.updateStatus();
+        this.loadPresets();
     }
 
     initUI() {
@@ -164,6 +168,43 @@ class App {
                     this.saveDrawing();
                 }
             });
+        }
+
+        const presetSelect = document.getElementById('presetSelect');
+        if (presetSelect) {
+            presetSelect.addEventListener('change', (e) => {
+                const id = e.target.value;
+                this.activePresetId = id;
+                if (!id) return;
+                const preset = this.presets.find((item) => item.id === id);
+                if (preset && preset.params) {
+                    this.simulator.updateParams({ ...preset.params });
+                    this.syncParamsToUI();
+                    this.redrawNow();
+                    this.fillPresetForm(preset);
+                }
+            });
+        }
+
+        const presetLoginBtn = document.getElementById('presetAdminLoginBtn');
+        if (presetLoginBtn) {
+            presetLoginBtn.addEventListener('click', () => this.loginPresetAdmin());
+        }
+        const presetLogoutBtn = document.getElementById('presetAdminLogoutBtn');
+        if (presetLogoutBtn) {
+            presetLogoutBtn.addEventListener('click', () => this.logoutPresetAdmin());
+        }
+        const presetSaveBtn = document.getElementById('presetSaveBtn');
+        if (presetSaveBtn) {
+            presetSaveBtn.addEventListener('click', () => this.savePreset());
+        }
+        const presetUpdateBtn = document.getElementById('presetUpdateBtn');
+        if (presetUpdateBtn) {
+            presetUpdateBtn.addEventListener('click', () => this.updatePreset());
+        }
+        const presetDeleteBtn = document.getElementById('presetDeleteBtn');
+        if (presetDeleteBtn) {
+            presetDeleteBtn.addEventListener('click', () => this.deletePreset());
         }
     }
 
@@ -303,6 +344,162 @@ class App {
         groups.forEach((group) => {
             group.classList.toggle('is-active', group.dataset.simpleGroup === value);
         });
+    }
+
+    async loadPresets() {
+        const select = document.getElementById('presetSelect');
+        if (!select) return;
+        select.innerHTML = '<option value="">読み込み中...</option>';
+        try {
+            const res = await fetch('/api/presets');
+            if (!res.ok) throw new Error('failed to load presets');
+            const data = await res.json();
+            this.presets = Array.isArray(data) ? data : [];
+        } catch (err) {
+            this.presets = [];
+        }
+        this.renderPresetOptions();
+    }
+
+    renderPresetOptions() {
+        const select = document.getElementById('presetSelect');
+        if (!select) return;
+        select.innerHTML = '<option value="">なし</option>';
+        this.presets.forEach((preset) => {
+            const option = document.createElement('option');
+            option.value = preset.id;
+            option.textContent = preset.name || '無名プリセット';
+            select.appendChild(option);
+        });
+        if (this.activePresetId) {
+            select.value = this.activePresetId;
+        }
+    }
+
+    fillPresetForm(preset) {
+        const nameInput = document.getElementById('presetName');
+        const descInput = document.getElementById('presetDescription');
+        if (nameInput) nameInput.value = preset?.name || '';
+        if (descInput) descInput.value = preset?.description || '';
+    }
+
+    loginPresetAdmin() {
+        const tokenInput = document.getElementById('presetAdminToken');
+        const token = tokenInput ? tokenInput.value.trim() : '';
+        if (!token) {
+            alert('管理者パスワードを入力してください。');
+            return;
+        }
+        this.adminToken = token;
+        const auth = document.getElementById('presetAdminAuth');
+        const panel = document.getElementById('presetAdminPanel');
+        if (auth) auth.hidden = true;
+        if (panel) panel.hidden = false;
+    }
+
+    logoutPresetAdmin() {
+        this.adminToken = '';
+        const tokenInput = document.getElementById('presetAdminToken');
+        if (tokenInput) tokenInput.value = '';
+        const auth = document.getElementById('presetAdminAuth');
+        const panel = document.getElementById('presetAdminPanel');
+        if (auth) auth.hidden = false;
+        if (panel) panel.hidden = true;
+    }
+
+    async presetAdminRequest(method, body) {
+        const res = await fetch('/api/presets', {
+            method,
+            headers: {
+                'Content-Type': 'application/json',
+                'x-admin-token': this.adminToken
+            },
+            body: JSON.stringify(body)
+        });
+        if (!res.ok) {
+            throw new Error(`request failed: ${res.status}`);
+        }
+        return res.json();
+    }
+
+    async savePreset() {
+        if (!this.adminToken) {
+            alert('管理者モードでログインしてください。');
+            return;
+        }
+        const nameInput = document.getElementById('presetName');
+        const descInput = document.getElementById('presetDescription');
+        const name = nameInput ? nameInput.value.trim() : '';
+        if (!name) {
+            alert('プリセット名を入力してください。');
+            return;
+        }
+        const description = descInput ? descInput.value.trim() : '';
+        try {
+            await this.presetAdminRequest('POST', {
+                name,
+                description,
+                params: { ...this.simulator.params }
+            });
+            await this.loadPresets();
+        } catch (err) {
+            alert('保存に失敗しました。');
+        }
+    }
+
+    async updatePreset() {
+        if (!this.adminToken) {
+            alert('管理者モードでログインしてください。');
+            return;
+        }
+        if (!this.activePresetId) {
+            alert('更新するプリセットを選択してください。');
+            return;
+        }
+        const nameInput = document.getElementById('presetName');
+        const descInput = document.getElementById('presetDescription');
+        const name = nameInput ? nameInput.value.trim() : '';
+        if (!name) {
+            alert('プリセット名を入力してください。');
+            return;
+        }
+        const description = descInput ? descInput.value.trim() : '';
+        try {
+            await this.presetAdminRequest('PUT', {
+                id: this.activePresetId,
+                name,
+                description,
+                params: { ...this.simulator.params }
+            });
+            await this.loadPresets();
+            this.activePresetId = '';
+            const select = document.getElementById('presetSelect');
+            if (select) select.value = '';
+        } catch (err) {
+            alert('更新に失敗しました。');
+        }
+    }
+
+    async deletePreset() {
+        if (!this.adminToken) {
+            alert('管理者モードでログインしてください。');
+            return;
+        }
+        if (!this.activePresetId) {
+            alert('削除するプリセットを選択してください。');
+            return;
+        }
+        if (!confirm('選択したプリセットを削除しますか？')) return;
+        try {
+            await this.presetAdminRequest('DELETE', { id: this.activePresetId });
+            this.activePresetId = '';
+            await this.loadPresets();
+            const select = document.getElementById('presetSelect');
+            if (select) select.value = '';
+            this.fillPresetForm({ name: '', description: '' });
+        } catch (err) {
+            alert('削除に失敗しました。');
+        }
     }
 
     handleResize() {
