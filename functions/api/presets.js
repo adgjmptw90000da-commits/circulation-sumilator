@@ -80,7 +80,8 @@ export async function onRequest(context) {
         body: {
           name: body.name,
           description: body.description || null,
-          params: body.params
+          params: body.params,
+          display: body.display || null
         }
       });
       const data = await res.json();
@@ -98,7 +99,8 @@ export async function onRequest(context) {
         body: {
           name: body.name,
           description: body.description || null,
-          params: body.params
+          params: body.params,
+          display: body.display || null
         }
       });
       const data = await res.json();

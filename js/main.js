@@ -396,6 +396,9 @@ class App {
         const preset = this.presets.find((item) => item.id === this.activePresetId);
         if (!preset || !preset.params) return;
         this.simulator.updateParams({ ...preset.params });
+        if (preset.display) {
+            this.applyDisplaySettings(preset.display);
+        }
         this.syncParamsToUI();
         this.redrawNow();
     }
@@ -500,7 +503,8 @@ class App {
             await this.presetAdminRequest('POST', {
                 name,
                 description,
-                params: { ...this.simulator.params }
+                params: { ...this.simulator.params },
+                display: this.getDisplaySettings()
             });
             await this.loadPresets();
         } catch (err) {
@@ -530,7 +534,8 @@ class App {
                 id: this.activePresetId,
                 name,
                 description,
-                params: { ...this.simulator.params }
+                params: { ...this.simulator.params },
+                display: this.getDisplaySettings()
             });
             await this.loadPresets();
             this.activePresetId = '';
@@ -1023,6 +1028,34 @@ class App {
             laElastance: read('laElastance'),
             lvElastance: read('lvElastance')
         };
+    }
+
+    getDisplaySettings() {
+        const scales = this.getScaleSettings();
+        return {
+            pv: {
+                laVMax: scales.laVMax,
+                laPMax: scales.laPMax,
+                lvVMax: scales.lvVMax,
+                lvPMax: scales.lvPMax
+            }
+        };
+    }
+
+    applyDisplaySettings(displaySettings = {}) {
+        const pv = displaySettings.pv;
+        if (!pv) return;
+        const scaleMap = {
+            'la-pv-vmax': pv.laVMax,
+            'la-pv-pmax': pv.laPMax,
+            'lv-pv-vmax': pv.lvVMax,
+            'lv-pv-pmax': pv.lvPMax
+        };
+        Object.entries(scaleMap).forEach(([id, value]) => {
+            const input = document.getElementById(id);
+            if (!input || value === undefined || value === null || Number.isNaN(value)) return;
+            input.value = value;
+        });
     }
 
     redrawNow() {

@@ -5,9 +5,13 @@ create table if not exists public.presets (
   name text not null,
   description text,
   params jsonb not null,
+  display jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.presets
+  add column if not exists display jsonb;
 
 create or replace function public.set_updated_at()
 returns trigger as $$
