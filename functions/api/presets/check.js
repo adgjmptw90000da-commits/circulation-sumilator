@@ -31,8 +31,8 @@ export async function onRequest(context) {
     return jsonResponse({ ok: false }, 405);
   }
   try {
-    const adminToken = request.headers.get('x-admin-token') || '';
-    const expectedToken = requireEnv(env, 'ADMIN_TOKEN');
+    const adminToken = (request.headers.get('x-admin-token') || '').trim();
+    const expectedToken = requireEnv(env, 'ADMIN_TOKEN').trim();
     if (adminToken !== expectedToken) {
       return jsonResponse({ ok: false }, 403);
     }

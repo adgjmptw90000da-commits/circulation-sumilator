@@ -63,8 +63,8 @@ export async function onRequest(context) {
       return jsonResponse(data, res.status);
     }
 
-    const adminToken = request.headers.get('x-admin-token') || '';
-    const expectedToken = requireEnv(env, 'ADMIN_TOKEN');
+    const adminToken = (request.headers.get('x-admin-token') || '').trim();
+    const expectedToken = requireEnv(env, 'ADMIN_TOKEN').trim();
     if (adminToken !== expectedToken) {
       return jsonResponse({ error: 'unauthorized' }, 403);
     }
