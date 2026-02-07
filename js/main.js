@@ -1043,7 +1043,7 @@ class App {
     }
 
     applyDisplaySettings(displaySettings = {}) {
-        const pv = displaySettings.pv;
+        const pv = displaySettings.pv || displaySettings.scales;
         if (!pv) return;
         const scaleMap = {
             'la-pv-vmax': pv.laVMax,
