@@ -496,6 +496,7 @@ class App {
             'simple-hr': 'hr',
             'simple-pv': 'pv',
             'simple-lv-ees': 'lvEes',
+            'simple-lv-alpha': 'lvAlpha',
             'simple-svr': 'svr',
             'simple-ca': 'ca'
         };
@@ -620,6 +621,7 @@ class App {
         setInput('simple-hr', params.hr);
         setInput('simple-pv', params.pv);
         setInput('simple-lv-ees', params.lvEes);
+        setInput('simple-lv-alpha', params.lvAlpha);
         setInput('simple-svr', params.svr);
         setInput('simple-ca', params.ca);
         setSelect('simple-rhythm', params.laContractionEnabled ? 'sinus' : 'junctional');

@@ -381,6 +381,12 @@ body {
     white-space: normal;
 }
 
+.param-note {
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
 .param-row input {
     width: 82px;
     padding: 0.25rem 0.4rem;
