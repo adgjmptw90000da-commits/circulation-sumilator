@@ -115,6 +115,7 @@ const INITIAL_STATE = {
     raVolume: 40,    // mL
     raPressure: 5,   // mmHg
     raElastance: 0,  // mmHg/mL
+    raBernoulliLPF: 0, // mmHg（RA導管期ベルヌーイ項LPF）
 
     // 左室
     lvVolume: 120,   // mL

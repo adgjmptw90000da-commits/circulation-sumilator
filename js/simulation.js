@@ -1139,10 +1139,14 @@ class CirculationSimulator {
 
             const qForward = Math.max(0, this.state.tricuspidForwardFlow || 0);
             const area = this.params.tvArea || 0;
-            if (qForward > 0 && area > 0) {
-                const deltaPBern = 0.0004 * Math.pow(qForward / area, 2);
-                raPressure -= deltaPBern;
-            }
+            const rawBern = (qForward > 0 && area > 0)
+                ? 0.0004 * Math.pow(qForward / area, 2)
+                : 0;
+            const prevBern = Number.isFinite(this.state.raBernoulliLPF) ? this.state.raBernoulliLPF : rawBern;
+            const alpha = dt / (0.05 + dt);
+            const deltaPBern = prevBern + (rawBern - prevBern) * alpha;
+            this.state.raBernoulliLPF = deltaPBern;
+            raPressure -= deltaPBern;
             this.state.raPressure = raPressure;
         } else {
             this.state.raPressure = raEDPVRPressure;
