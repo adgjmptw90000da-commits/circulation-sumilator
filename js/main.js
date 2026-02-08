@@ -641,7 +641,7 @@ class App {
         const steadyBeats = 20;
         const sampleBeats = 3;
         if (this.balanceWorkerFailed || typeof Worker === 'undefined') {
-            return Promise.resolve(this.computeBalanceCurveSync(paramsSnapshot, xMax, points, steadyBeats, sampleBeats));
+            return this.computeBalanceCurveAsync(paramsSnapshot, xMax, points, steadyBeats, sampleBeats);
         }
 
         if (!this.balanceWorker) {
@@ -666,7 +666,9 @@ class App {
             const timeout = setTimeout(() => {
                 if (!this.balanceCurveRequests.has(token)) return;
                 this.balanceCurveRequests.delete(token);
-                resolve(this.computeBalanceCurveSync(paramsSnapshot, xMax, points, steadyBeats, sampleBeats));
+                this.balanceWorkerFailed = true;
+                this.computeBalanceCurveAsync(paramsSnapshot, xMax, points, steadyBeats, sampleBeats)
+                    .then(resolve);
             }, 1200);
             this.balanceCurveRequests.set(token, { resolve, timeout });
             this.balanceWorker.postMessage({
@@ -677,6 +679,62 @@ class App {
                 beats: steadyBeats,
                 sampleBeats
             });
+        });
+    }
+
+    computeBalanceCurveAsync(paramsSnapshot, xMax, points = 25, beats = 20, sampleBeats = 3) {
+        const totalPoints = Math.max(2, points);
+        const results = new Array(totalPoints);
+        let index = 0;
+
+        return new Promise((resolve) => {
+            const runNext = () => {
+                if (index >= totalPoints) {
+                    resolve(results);
+                    return;
+                }
+                const pvTarget = (xMax * index) / (totalPoints - 1);
+                this.computeBalancePointAsync(paramsSnapshot, pvTarget, beats, sampleBeats)
+                    .then((y) => {
+                        results[index] = { x: pvTarget, y };
+                        index += 1;
+                        setTimeout(runNext, 0);
+                    });
+            };
+            runNext();
+        });
+    }
+
+    computeBalancePointAsync(paramsSnapshot, pvTarget, beats, sampleBeats) {
+        return new Promise((resolve) => {
+            const sim = new CirculationSimulator();
+            sim.updateParams({ ...paramsSnapshot, pv: pvTarget });
+            const hr = sim.params.hr || 75;
+            const stepsPerBeat = Math.max(1, Math.floor((60 / hr) / SIM_CONFIG.dt));
+            const totalSteps = stepsPerBeat * Math.max(1, beats);
+            const chunk = 250;
+            let step = 0;
+
+            const runChunk = () => {
+                const end = Math.min(step + chunk, totalSteps);
+                for (; step < end; step++) {
+                    sim.step();
+                }
+                if (step < totalSteps) {
+                    setTimeout(runChunk, 0);
+                    return;
+                }
+                const history = sim.getHistory();
+                const sampleSteps = stepsPerBeat * Math.max(1, sampleBeats);
+                const startIndex = Math.max(0, history.time.length - sampleSteps);
+                const recentAoFlow = history.aorticFlow.slice(startIndex);
+                const meanAo = recentAoFlow.length
+                    ? recentAoFlow.reduce((a, b) => a + b, 0) / recentAoFlow.length
+                    : 0;
+                resolve(meanAo * 60 / 1000);
+            };
+
+            runChunk();
         });
     }
 
@@ -1356,49 +1414,64 @@ class App {
         const pvSnapshot = this.getCurrentPvSnapshot();
         const color = this.getNextSavedColor();
         const xMax = this.getScaleSettings().balanceXMax;
+        const id = `drawing-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        const drawing = {
+            id,
+            name,
+            color,
+            coCurve: null,
+            ra: {
+                volume: pvSnapshot.raVolume,
+                pressure: pvSnapshot.raPressure,
+                ees: paramsSnapshot.raEes,
+                v0: paramsSnapshot.raV0,
+                alpha: paramsSnapshot.raAlpha,
+                beta: paramsSnapshot.raBeta
+            },
+            rv: {
+                volume: pvSnapshot.rvVolume,
+                pressure: pvSnapshot.rvPressure,
+                ees: paramsSnapshot.rvEes,
+                v0: paramsSnapshot.rvV0,
+                alpha: paramsSnapshot.rvAlpha,
+                beta: paramsSnapshot.rvBeta
+            },
+            la: {
+                volume: pvSnapshot.laVolume,
+                pressure: pvSnapshot.laPressure,
+                ees: paramsSnapshot.laEes,
+                v0: paramsSnapshot.laV0,
+                alpha: paramsSnapshot.laAlpha,
+                beta: paramsSnapshot.laBeta
+            },
+            lv: {
+                volume: pvSnapshot.lvVolume,
+                pressure: pvSnapshot.lvPressure,
+                ees: paramsSnapshot.lvEes,
+                v0: paramsSnapshot.lvV0,
+                alpha: paramsSnapshot.lvAlpha,
+                beta: paramsSnapshot.lvBeta
+            }
+        };
+        this.savedDrawings.push(drawing);
+        this.renderSavedDrawings();
+        this.closeSaveDrawingForm();
+        this.chartManager.update(
+            this.simulator,
+            this.getScaleSettings(),
+            this.calculateMetrics(),
+            this.getWaveformVisibility(),
+            this.getBalanceCurvesForChart(),
+            this.savedDrawings
+        );
         this.setBalanceComputeState(true);
         this.computeBalanceCurve(paramsSnapshot, xMax)
             .then((points) => {
                 if (!points || points.length === 0) return;
-                this.savedDrawings.push({
-                    name,
-                    color,
-                    coCurve: points,
-                    ra: {
-                        volume: pvSnapshot.raVolume,
-                        pressure: pvSnapshot.raPressure,
-                        ees: paramsSnapshot.raEes,
-                        v0: paramsSnapshot.raV0,
-                        alpha: paramsSnapshot.raAlpha,
-                        beta: paramsSnapshot.raBeta
-                    },
-                    rv: {
-                        volume: pvSnapshot.rvVolume,
-                        pressure: pvSnapshot.rvPressure,
-                        ees: paramsSnapshot.rvEes,
-                        v0: paramsSnapshot.rvV0,
-                        alpha: paramsSnapshot.rvAlpha,
-                        beta: paramsSnapshot.rvBeta
-                    },
-                    la: {
-                        volume: pvSnapshot.laVolume,
-                        pressure: pvSnapshot.laPressure,
-                        ees: paramsSnapshot.laEes,
-                        v0: paramsSnapshot.laV0,
-                        alpha: paramsSnapshot.laAlpha,
-                        beta: paramsSnapshot.laBeta
-                    },
-                    lv: {
-                        volume: pvSnapshot.lvVolume,
-                        pressure: pvSnapshot.lvPressure,
-                        ees: paramsSnapshot.lvEes,
-                        v0: paramsSnapshot.lvV0,
-                        alpha: paramsSnapshot.lvAlpha,
-                        beta: paramsSnapshot.lvBeta
-                    }
-                });
-                this.renderSavedDrawings();
-                this.closeSaveDrawingForm();
+                const target = this.savedDrawings.find((item) => item.id === id);
+                if (target) {
+                    target.coCurve = points;
+                }
                 this.chartManager.update(
                     this.simulator,
                     this.getScaleSettings(),
