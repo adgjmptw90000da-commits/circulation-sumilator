@@ -68,7 +68,7 @@
                                     </div>
                                     <div class="param-row">
                                         <label>左室収縮力 (Ees)</label>
-                                        <input type="number" id="simple-lv-ees" value="2.3" step="0.1" min="0.5" max="5">
+                                        <input type="number" id="simple-lv-ees" value="2.5" step="0.1" min="0.5" max="5">
                                     </div>
                                     <div class="param-row">
                                         <label>左室拡張能(EDPVR)</label>
@@ -76,7 +76,7 @@
                                     </div>
                                     <div class="param-row">
                                         <label>後負荷 (SVR)</label>
-                                        <input type="number" id="simple-svr" value="1200" step="50" min="400" max="4000">
+                                        <input type="number" id="simple-svr" value="1000" step="50" min="400" max="4000">
                                     </div>
                                     <div class="param-row">
                                         <label>大動脈コンプライアンス</label>
@@ -167,6 +167,11 @@
                                 <select id="paramGroupSelect">
                                     <option value="heart" selected>心拍</option>
                                     <option value="vein">静脈</option>
+                                    <option value="ra">右房</option>
+                                    <option value="tricuspid">三尖弁</option>
+                                    <option value="rv">右室</option>
+                                    <option value="pulmonary-valve">肺動脈弁</option>
+                                    <option value="pulmonary">肺循環</option>
                                     <option value="la">左房</option>
                                     <option value="mitral">僧帽弁</option>
                                     <option value="lv">左室</option>
@@ -203,6 +208,116 @@
                                 </div>
                             </div>
 
+                            <div class="param-section param-group" data-group="ra">
+                                <div class="param-section-header">右房</div>
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label>RA Ees (mmHg/mL)</label>
+                                        <input type="number" id="param-ra-ees" value="0.17" step="0.01" min="0.05" max="1">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>RA EDPVR α (mmHg)</label>
+                                        <input type="number" id="param-ra-alpha" value="0.08" step="0.01" min="0.01" max="1">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>RA EDPVR β (1/mL)</label>
+                                        <input type="number" id="param-ra-beta" value="0.04" step="0.01" min="0.01" max="0.2">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>RA V0 (mL)</label>
+                                        <input type="number" id="param-ra-v0" value="0" step="1" min="0" max="20">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="param-section param-group" data-group="tricuspid">
+                                <div class="param-section-header">三尖弁</div>
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label class="label-small">三尖弁抵抗(mmHg·s/mL)</label>
+                                        <input type="number" id="param-rt" value="0.01" step="0.001" min="0.001" max="0.1">
+                                    </div>
+                                    <div class="param-row">
+                                        <label class="label-small">三尖弁慣性(mmHg·s²/mL)</label>
+                                        <input type="number" id="param-lt" value="0.0001" step="0.0001" min="0.0001" max="0.01">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>三尖弁面積(cm²)</label>
+                                        <input type="number" id="param-tv-area" value="7.0" step="0.1" min="1" max="12">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="param-section param-group" data-group="rv">
+                                <div class="param-section-header">右室</div>
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label>RV Ees (mmHg/mL)</label>
+                                        <input type="number" id="param-rv-ees" value="0.4" step="0.05" min="0.2" max="3">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>RV EDPVR α (mmHg)</label>
+                                        <input type="number" id="param-rv-alpha" value="0.02" step="0.005" min="0.005" max="0.2">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>RV EDPVR β (1/mL)</label>
+                                        <input type="number" id="param-rv-beta" value="0.04" step="0.01" min="0.01" max="0.2">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>RV V0 (mL)</label>
+                                        <input type="number" id="param-rv-v0" value="0" step="1" min="0" max="30">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="param-section param-group" data-group="pulmonary-valve">
+                                <div class="param-section-header">肺動脈弁</div>
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label class="label-small">肺動脈弁抵抗(mmHg·s/mL)</label>
+                                        <input type="number" id="param-rp" value="0.01" step="0.001" min="0.001" max="0.1">
+                                    </div>
+                                    <div class="param-row">
+                                        <label class="label-small">肺動脈弁慣性(mmHg·s²/mL)</label>
+                                        <input type="number" id="param-lp" value="0.0001" step="0.0001" min="0.0001" max="0.01">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="param-section param-group" data-group="pulmonary">
+                                <div class="param-section-header">肺循環</div>
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label class="label-small">肺動脈コンプライアンス (mL/mmHg)</label>
+                                        <input type="number" id="param-cp" value="4.0" step="0.1" min="0.5" max="10">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>肺動脈抵抗 (dyn·s/cm⁵)</label>
+                                        <input type="number" id="param-pvr" value="100" step="10" min="40" max="800">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>肺静脈抵抗 (dyn·s/cm⁵)</label>
+                                        <input type="number" id="param-pvr-venous" value="20" step="5" min="10" max="400">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>PA Area (cm^2)</label>
+                                        <input type="number" id="param-pa-area" value="5" step="0.1" min="1" max="12">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>肺静脈EDPVR α (mmHg)</label>
+                                        <input type="number" id="param-pv-alpha" value="0.25" step="0.01" min="0.01" max="2">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>肺静脈EDPVR β (1/mL)</label>
+                                        <input type="number" id="param-pv-beta" value="0.02" step="0.001" min="0.001" max="0.1">
+                                    </div>
+                                    <div class="param-row">
+                                        <label>肺静脈EDPVR V0 (mL)</label>
+                                        <input type="number" id="param-pv-v0" value="0" step="1" min="0" max="200">
+                                    </div>
+                                </div>
+                            </div>
+
                             <div class="param-section param-group" data-group="la">
                                 <div class="param-section-header">左房</div>
                                 <div class="param-content">
@@ -215,7 +330,7 @@
                                     </div>
                                     <div class="param-row">
                                         <label>LA Ees (mmHg/mL)</label>
-                                        <input type="number" id="param-la-ees" value="0.25" step="0.01" min="0.05" max="1">
+                                        <input type="number" id="param-la-ees" value="0.2" step="0.01" min="0.05" max="1">
                                     </div>
                                     <div class="param-row">
                                     <label>左房EDPVR α(mmHg)</label>
@@ -281,7 +396,7 @@
                                 <div class="param-content">
                                     <div class="param-row">
                                         <label>LV Ees (mmHg/mL)</label>
-                                        <input type="number" id="param-lv-ees" value="2.3" step="0.1" min="0.5" max="5">
+                                        <input type="number" id="param-lv-ees" value="2.5" step="0.1" min="0.5" max="5">
                                     </div>
                                     <div class="param-row">
                                     <label>左室EDPVR α(mmHg)</label>
@@ -324,15 +439,15 @@
                                         <input type="number" id="param-ar-eroa" value="0.3" step="0.01" min="0" max="5">
                                     </div>
                                     <div class="param-row">
-                                    <label>AR逆流係数(Cd)</label>
+                                        <label class="label-small">AR逆流係数(Cd)</label>
                                         <input type="number" id="param-ar-cd" value="0.88" step="0.01" min="0.1" max="1.2">
                                     </div>
                                     <div class="param-row">
-                                    <label>大動脈弁抵抗(mmHg·s/mL)</label>
+                                    <label class="label-small">大動脈弁抵抗(mmHg·s/mL)</label>
                                         <input type="number" id="param-ra" value="0.02" step="0.001" min="0.001" max="0.1">
                                     </div>
                                     <div class="param-row">
-                                    <label>大動脈弁慣性(mmHg·s²/mL)</label>
+                                    <label class="label-small">大動脈弁慣性(mmHg·s²/mL)</label>
                                         <input type="number" id="param-la-inert" value="0.0001" step="0.0001" min="0.0001" max="0.01">
                                     </div>
                                 </div>
@@ -342,16 +457,16 @@
                                 <div class="param-section-header">大動脈</div>
                                 <div class="param-content">
                                     <div class="param-row">
-                                    <label>大動脈コンプライアンス(mL/mmHg)</label>
+                                    <label class="label-small">大動脈コンプライアンス(mL/mmHg)</label>
                                         <input type="number" id="param-ca" value="1.5" step="0.1" min="0.5" max="5">
                                     </div>
                                     <div class="param-row">
                                         <label>Ao Area (cm^2)</label>
-                                        <input type="number" id="param-ao-area" value="4.0" step="0.1" min="1" max="10">
+                                        <input type="number" id="param-ao-area" value="8.0" step="0.1" min="1" max="10">
                                     </div>
                                     <div class="param-row">
                                         <label>SVR (dyn·s/cm⁵)</label>
-                                        <input type="number" id="param-svr" value="1200" step="50" min="400" max="4000">
+                                        <input type="number" id="param-svr" value="1000" step="50" min="400" max="4000">
                                     </div>
                                 </div>
                             </div>
@@ -362,46 +477,62 @@
                                 <h4>波形表示項目</h4>
                                 <div class="toggle-grid">
                                     <label><input type="checkbox" class="waveform-toggle" value="art" checked> ART</label>
-                                    <label><input type="checkbox" class="waveform-toggle" value="lvp" checked> LVP</label>
-                                    <label><input type="checkbox" class="waveform-toggle" value="lap" checked> LAP</label>
-                                    <label><input type="checkbox" class="waveform-toggle" value="avFlow" checked> AV flow</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="pap" checked> PAP</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="rap" checked> RAP</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="lvp"> LVP</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="rvp"> RVP</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="lap"> LAP</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="avFlow"> AV flow</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="pvFlow"> PV flow</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="tvFlow" checked> TV flow</label>
                                     <label><input type="checkbox" class="waveform-toggle" value="mvFlow" checked> MV flow</label>
-                                    <label><input type="checkbox" class="waveform-toggle" value="pvFlow" checked> PV flow</label>
-                                    <label><input type="checkbox" class="waveform-toggle" value="laElastance" checked> LA elastance</label>
-                                    <label><input type="checkbox" class="waveform-toggle" value="lvElastance" checked> LV elastance</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="svFlow"> Systemic venous flow</label>
+                                    <label><input type="checkbox" class="waveform-toggle" value="pvnFlow"> Pulmonary venous flow</label>
                                 </div>
                             </div>
                             <div class="modal-section">
                                 <h4>モニタースケール</h4>
                                 <div class="modal-grid">
                                     <label>圧 Max (LV/AO)
-                                        <input type="number" class="scale-input" id="monitor-pressure-lv-ao-max" value="150" step="10" min="50" max="300">
+                                        <input type="number" class="scale-input" id="monitor-pressure-lv-ao-max" value="200" step="10" min="50" max="300">
                                     </label>
                                     <label>圧 Max (LA)
-                                        <input type="number" class="scale-input" id="monitor-pressure-la-max" value="40" step="5" min="5" max="80">
+                                        <input type="number" class="scale-input" id="monitor-pressure-la-max" value="60" step="5" min="5" max="80">
+                                    </label>
+                                    <label>圧 Max (RV/PA)
+                                        <input type="number" class="scale-input" id="monitor-pressure-rv-pa-max" value="60" step="5" min="10" max="120">
                                     </label>
                                     <label>Flow Max
                                         <input type="number" class="scale-input" id="scale-flow-max" value="1200" step="100" min="200" max="2000">
                                     </label>
                                     <label>Flow Min
-                                        <input type="number" class="scale-input" id="scale-flow-min" value="-200" step="50" min="-500" max="0">
-                                    </label>
-                                    <label>E Max
-                                        <input type="number" class="scale-input" id="scale-elastance-max" value="3" step="0.5" min="1" max="10">
+                                        <input type="number" class="scale-input" id="scale-flow-min" value="-600" step="50" min="-2000" max="0">
                                     </label>
                                 </div>
                             </div>
                             <div class="modal-section">
                                 <h4>PVループスケール</h4>
                                 <div class="modal-grid">
+                                    <label>RA V Max
+                                        <input type="number" class="scale-input" id="ra-pv-vmax" value="160" min="20" max="200">
+                                    </label>
+                                    <label>RA P Max
+                                        <input type="number" class="scale-input" id="ra-pv-pmax" value="30" min="5" max="50">
+                                    </label>
                                     <label>LA V Max
                                         <input type="number" class="scale-input" id="la-pv-vmax" value="120" min="20" max="200">
                                     </label>
                                     <label>LA P Max
-                                        <input type="number" class="scale-input" id="la-pv-pmax" value="40" min="5" max="50">
+                                        <input type="number" class="scale-input" id="la-pv-pmax" value="30" min="5" max="50">
+                                    </label>
+                                    <label>RV V Max
+                                        <input type="number" class="scale-input" id="rv-pv-vmax" value="200" min="50" max="300">
+                                    </label>
+                                    <label>RV P Max
+                                        <input type="number" class="scale-input" id="rv-pv-pmax" value="60" min="10" max="120">
                                     </label>
                                     <label>LV V Max
-                                        <input type="number" class="scale-input" id="lv-pv-vmax" value="150" min="50" max="300">
+                                        <input type="number" class="scale-input" id="lv-pv-vmax" value="160" min="50" max="300">
                                     </label>
                                     <label>LV P Max
                                         <input type="number" class="scale-input" id="lv-pv-pmax" value="200" min="50" max="300">
@@ -440,11 +571,34 @@
                                 <span class="vital-label">HR</span>
                                 <span class="vital-value" id="vital-hr">75</span>
                             </div>
-                            <div class="vital-item vital-bp" data-vital-item="art">
+                            <div class="vital-item vital-art" data-vital-item="art">
                                 <span class="vital-label">ART</span>
                                 <span class="vital-values">
                                     <span class="vital-value" id="vital-sys">120</span>/<span class="vital-value vital-dia"
                                         id="vital-dia">80</span>(<span id="vital-map">93</span>)
+                                </span>
+                            </div>
+                            <div class="vital-item vital-pap" data-vital-item="pap">
+                                <span class="vital-label">PAP</span>
+                                <span class="vital-values">
+                                    <span class="vital-value" id="vital-pap-sys">25</span>/<span class="vital-value vital-dia"
+                                        id="vital-pap-dia">10</span>(<span id="vital-pap-mean">15</span>)
+                                </span>
+                            </div>
+                            <div class="vital-item vital-rap" data-vital-item="rap">
+                                <span class="vital-label">RAP</span>
+                                <span class="vital-values">
+                                    <span class="vital-value" id="vital-rap-max">6</span>/<span
+                                        class="vital-value vital-dia" id="vital-rap-min">2</span>(<span
+                                        id="vital-rap-mean">4</span>)
+                                </span>
+                            </div>
+                            <div class="vital-item vital-rvp" data-vital-item="rvp">
+                                <span class="vital-label">RVP</span>
+                                <span class="vital-values">
+                                    <span class="vital-value" id="vital-rvp-max">25</span>/<span
+                                        class="vital-value vital-dia" id="vital-rvp-min">5</span>(<span
+                                        id="vital-rvp-mean">12</span>)
                                 </span>
                             </div>
                             <div class="vital-item vital-lap" data-vital-item="lap">
@@ -463,21 +617,21 @@
                                         id="vital-lvp-mean">40</span>)
                                 </span>
                             </div>
-                            <div class="vital-item vital-other" data-vital-item="co">
-                                <span class="vital-label">CO</span>
-                                <span class="vital-value" id="vital-co">5.0</span>
-                            </div>
-                            <div class="vital-item vital-other" data-vital-item="sv">
-                                <span class="vital-label">SV</span>
-                                <span class="vital-value" id="vital-sv">70</span>
-                            </div>
-                            <div class="vital-item vital-other" data-vital-item="svr">
-                                <span class="vital-label">SVR</span>
-                                <span class="vital-value" id="vital-svr">1200</span>
-                            </div>
-                            <div class="vital-item vital-other" data-vital-item="lvedp">
-                                <span class="vital-label">LVEDP</span>
-                                <span class="vital-value" id="vital-lvedp">8</span>
+                            <div class="vital-bottom">
+                                <div class="vital-item vital-summary" data-vital-item="co-sv">
+                                    <div class="vital-line">
+                                        <span class="vital-label-inline">CO</span>
+                                        <span class="vital-value" id="vital-co">5.0</span>
+                                        <span class="vital-label-inline">SV</span>
+                                        <span class="vital-value" id="vital-sv">70</span>
+                                    </div>
+                                </div>
+                                <div class="vital-item vital-svr" data-vital-item="svr">
+                                    <div class="vital-line">
+                                        <span class="vital-label-inline">SVR</span>
+                                        <span class="vital-value" id="vital-svr">1200</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <div class="monitor-waveforms">
@@ -491,11 +645,11 @@
                             </div>
                             <!-- 弁Flow -->
                             <div class="monitor-row">
-                                <canvas id="chart-flow"></canvas>
+                                <canvas id="chart-flow-right"></canvas>
                             </div>
-                            <!-- エラスタンス -->
-                            <div class="monitor-row monitor-row-small">
-                                <canvas id="chart-elastance"></canvas>
+                            <!-- 左心系Flow -->
+                            <div class="monitor-row">
+                                <canvas id="chart-flow-left"></canvas>
                             </div>
                         </div>
                     </div>
@@ -503,6 +657,18 @@
 
                 <!-- その他のグラフ -->
                 <div class="charts-grid">
+
+                    <!-- 右房PVループ -->
+                    <div class="chart-container">
+                        <h3>右房 PVループ</h3>
+                        <canvas id="chart-ra-pv"></canvas>
+                    </div>
+
+                    <!-- 右室PVループ -->
+                    <div class="chart-container">
+                        <h3>右室 PVループ</h3>
+                        <canvas id="chart-rv-pv"></canvas>
+                    </div>
 
                     <!-- 左房PVループ -->
                     <div class="chart-container">

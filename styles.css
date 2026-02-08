@@ -377,6 +377,13 @@ body {
     white-space: nowrap;
 }
 
+.param-row label.label-small {
+    font-size: 0.62rem;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+    white-space: normal;
+}
+
 .simple-group .param-row label {
     white-space: normal;
 }
@@ -744,13 +751,63 @@ input[type="number"] {
     border-radius: 3px;
 }
 
+.vital-bottom {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.vital-summary {
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.vital-line {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    white-space: nowrap;
+}
+
+.vital-label-inline {
+    font-size: 0.5rem;
+    color: #888;
+}
+
+.vital-summary .vital-value {
+    font-size: 1.05rem;
+    color: #ffffff;
+}
+
+.vital-svr .vital-label,
+.vital-svr .vital-value,
+.vital-svr .vital-label-inline {
+    font-size: 0.75rem;
+}
+
 .vital-hr {
     background: rgba(0, 255, 0, 0.1);
 }
 
 .vital-bp,
 .vital-map {
-    background: rgba(255, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.vital-art {
+    background: rgba(255, 68, 68, 0.12);
+}
+
+.vital-pap {
+    background: rgba(255, 216, 77, 0.12);
+}
+
+.vital-rap {
+    background: rgba(123, 223, 242, 0.12);
+}
+
+.vital-rvp {
+    background: rgba(77, 163, 255, 0.12);
 }
 
 .vital-lap {
@@ -758,7 +815,7 @@ input[type="number"] {
 }
 
 .vital-lvp {
-    background: rgba(0, 255, 255, 0.1);
+    background: rgba(255, 140, 0, 0.12);
 }
 
 .vital-label {
@@ -779,7 +836,7 @@ input[type="number"] {
 
 .vital-bp .vital-value,
 .vital-map .vital-value {
-    color: #ff4444;
+    color: #cccccc;
 }
 
 .vital-dia {
@@ -791,12 +848,28 @@ input[type="number"] {
     color: #ff4444;
 }
 
+.vital-art .vital-value {
+    color: #ff4444;
+}
+
+.vital-pap .vital-value {
+    color: #ffd84d;
+}
+
+.vital-rap .vital-value {
+    color: #7bdff2;
+}
+
+.vital-rvp .vital-value {
+    color: #4da3ff;
+}
+
 .vital-lap .vital-value {
     color: #ffff00;
 }
 
 .vital-lvp .vital-value {
-    color: #00ffff;
+    color: #ff8c00;
 }
 
 .vital-other .vital-value {
@@ -812,7 +885,7 @@ input[type="number"] {
 /* Charts Grid */
 .charts-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: 1rem;
 }
 
@@ -855,15 +928,13 @@ input[type="number"] {
 }
 
 .chart-container canvas {
-    flex: 1;
+    flex: 0 0 auto;
     width: 100%;
     background: var(--chart-bg);
+    aspect-ratio: 4 / 3;
+    height: auto;
 }
 
-.balance-chart #chart-balance {
-    flex: 0 0 auto;
-    height: clamp(200px, 32vh, 280px);
-}
 
 .balance-toolbar {
     display: flex;
@@ -972,7 +1043,7 @@ input[type="number"] {
 
 @media (max-width: 900px) {
     .charts-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .controls {

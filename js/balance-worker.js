@@ -4,24 +4,22 @@ importScripts('constants.js', 'simulation.js');
 
 const mean = (arr, fallback = 0) => (arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : fallback);
 
-const simulatePoint = (baseParams, pvTarget, beats, durationSec) => {
+const simulatePoint = (baseParams, pvTarget, beats, sampleBeats) => {
     const sim = new CirculationSimulator();
     sim.updateParams({ ...baseParams, pv: pvTarget });
 
     const hr = sim.params.hr || 75;
     const cycleDuration = 60 / hr;
     const stepsPerBeat = Math.max(1, Math.floor(cycleDuration / SIM_CONFIG.dt));
-    let totalSteps = stepsPerBeat * (beats || 6);
-    if (durationSec && durationSec > 0) {
-        totalSteps = Math.max(stepsPerBeat, Math.floor(durationSec / SIM_CONFIG.dt));
-    }
+    const totalSteps = stepsPerBeat * (beats || 20);
 
     for (let step = 0; step < totalSteps; step++) {
         sim.step();
     }
 
     const history = sim.getHistory();
-    const startIndex = Math.max(0, history.time.length - stepsPerBeat);
+    const sampleSteps = stepsPerBeat * (sampleBeats || 3);
+    const startIndex = Math.max(0, history.time.length - sampleSteps);
     const recentAoFlow = history.aorticFlow.slice(startIndex);
 
     return {
@@ -31,7 +29,7 @@ const simulatePoint = (baseParams, pvTarget, beats, durationSec) => {
 };
 
 self.onmessage = (event) => {
-    const { params, xMax, points, beats, durationSec, token } = event.data || {};
+    const { params, xMax, points, beats, sampleBeats, token } = event.data || {};
     if (!params || !xMax) return;
 
     const totalPoints = points || 25;
@@ -39,7 +37,7 @@ self.onmessage = (event) => {
 
     for (let i = 0; i < totalPoints; i++) {
         const pvTarget = (xMax * i) / (totalPoints - 1);
-        results.push(simulatePoint(params, pvTarget, beats, durationSec));
+        results.push(simulatePoint(params, pvTarget, beats, sampleBeats));
     }
 
     self.postMessage({ results, token });

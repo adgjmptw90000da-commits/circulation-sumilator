@@ -10,10 +10,16 @@ class ChartManager {
             ecg: '#00ff00',   // 緑
             la: '#ffff00',    // 黄（左房）
             lv: '#ff8c00',    // オレンジ
+            ra: '#7bdff2',    // 水色（右房）
+            rv: '#4da3ff',    // 青（右室）
             ao: '#ff4444',    // 赤
+            pa: '#ffd84d',    // 黄（肺動脈）
             vein: '#00ffff',  // 水色（静脈）
+            pulmonaryVein: '#ffd166', // 黄（肺静脈）
             mitral: '#ff8c00',// オレンジ（僧帽弁フロー）
             aortic: '#ff4444',// 赤（大動脈弁フロー）
+            tricuspid: '#4da3ff', // 青（三尖弁フロー）
+            pulmonary: '#2ecc71', // 緑（肺動脈弁フロー）
             coCurve: '#ff6b6b', // CO曲線
             vrCurve: '#5c7cfa', // 静脈還流曲線
             eqPoint: '#ffd43b', // 平衡点
@@ -32,9 +38,11 @@ class ChartManager {
     initCharts() {
         // 各キャンバスを初期化
         this.charts.ecg = this.setupCanvas('chart-ecg');
-        this.charts.elastance = this.setupCanvas('chart-elastance');
         this.charts.pressure = this.setupCanvas('chart-pressure');
-        this.charts.flow = this.setupCanvas('chart-flow');
+        this.charts.flowRight = this.setupCanvas('chart-flow-right');
+        this.charts.flowLeft = this.setupCanvas('chart-flow-left');
+        this.charts.raPV = this.setupCanvas('chart-ra-pv');
+        this.charts.rvPV = this.setupCanvas('chart-rv-pv');
         this.charts.laPV = this.setupCanvas('chart-la-pv');
         this.charts.lvPV = this.setupCanvas('chart-lv-pv');
         this.charts.balance = this.setupCanvas('chart-balance');
@@ -61,19 +69,27 @@ class ChartManager {
         }
         const baseWidth = isMonitor ? (this.monitorBaseWidth || displayRect.width) : displayRect.width;
         const targetWidth = isMonitor ? Math.max(displayRect.width, baseWidth) : displayRect.width;
+        let targetHeight = rect.height;
+        if (!isMonitor) {
+            const aspect = 3 / 4; // height / width (4:3)
+            targetHeight = Math.max(1, targetWidth * aspect);
+            canvas.style.height = `${targetHeight}px`;
+        }
         const dpr = window.devicePixelRatio || 1;
         canvas.width = Math.max(1, targetWidth * dpr);
-        canvas.height = Math.max(1, rect.height * dpr);
+        canvas.height = Math.max(1, targetHeight * dpr);
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.scale(dpr, dpr);
         canvas.style.width = targetWidth + 'px';
-        canvas.style.height = rect.height + 'px';
+        if (isMonitor) {
+            canvas.style.height = rect.height + 'px';
+        }
 
         return {
             canvas,
             ctx,
             width: displayRect.width,
-            height: rect.height,
+            height: targetHeight,
             displayWidth: displayRect.width,
             isMonitor
         };
@@ -339,7 +355,13 @@ class ChartManager {
         for (let i = 0; i <= 4; i++) {
             const x = width * i / 4;
             const value = xMin + (xMax - xMin) * i / 4;
-            ctx.fillText(value.toFixed(0), x + 2, height - 4);
+            if (i === 4) {
+                ctx.textAlign = 'right';
+                ctx.fillText(value.toFixed(0), x - 2, height - 4);
+                ctx.textAlign = 'left';
+            } else {
+                ctx.fillText(value.toFixed(0), x + 2, height - 4);
+            }
         }
     }
 
@@ -472,6 +494,7 @@ class ChartManager {
 
     }
 
+
     drawSavedLAPVLoops(chart, savedDrawings, vMax, pMax) {
         if (!chart || !Array.isArray(savedDrawings) || savedDrawings.length === 0) return;
         const { ctx } = chart;
@@ -483,6 +506,36 @@ class ChartManager {
             this.drawEDPVRLine(ctx, vMax, pMax, drawing.la.alpha, drawing.la.beta, drawing.la.v0, color);
             this.drawLAESPVRLine(ctx, vMax, pMax, drawing.la.ees, drawing.la.v0, color);
             this.drawPVPath(ctx, drawing.la.volume, drawing.la.pressure, vMax, pMax, color, 1.6, false);
+            ctx.restore();
+        });
+    }
+
+    drawSavedRAPVLoops(chart, savedDrawings, vMax, pMax) {
+        if (!chart || !Array.isArray(savedDrawings) || savedDrawings.length === 0) return;
+        const { ctx } = chart;
+        savedDrawings.forEach((drawing) => {
+            if (!drawing.ra) return;
+            const color = drawing.color || this.colors.ra;
+            ctx.save();
+            ctx.globalAlpha = 0.7;
+            this.drawEDPVRLine(ctx, vMax, pMax, drawing.ra.alpha, drawing.ra.beta, drawing.ra.v0, color);
+            this.drawLVESPVRLine(ctx, vMax, pMax, drawing.ra.ees, drawing.ra.v0, color);
+            this.drawPVPath(ctx, drawing.ra.volume, drawing.ra.pressure, vMax, pMax, color, 1.6, false);
+            ctx.restore();
+        });
+    }
+
+    drawSavedRVPVLoops(chart, savedDrawings, vMax, pMax) {
+        if (!chart || !Array.isArray(savedDrawings) || savedDrawings.length === 0) return;
+        const { ctx } = chart;
+        savedDrawings.forEach((drawing) => {
+            if (!drawing.rv) return;
+            const color = drawing.color || this.colors.rv;
+            ctx.save();
+            ctx.globalAlpha = 0.7;
+            this.drawEDPVRLine(ctx, vMax, pMax, drawing.rv.alpha, drawing.rv.beta, drawing.rv.v0, color);
+            this.drawLVESPVRLine(ctx, vMax, pMax, drawing.rv.ees, drawing.rv.v0, color);
+            this.drawPVPath(ctx, drawing.rv.volume, drawing.rv.pressure, vMax, pMax, color, 1.6, false);
             ctx.restore();
         });
     }
@@ -583,11 +636,16 @@ class ChartManager {
             art: waveformVisibility.art !== false,
             lvp: waveformVisibility.lvp !== false,
             lap: waveformVisibility.lap !== false,
+            rap: waveformVisibility.rap !== false,
+            rvp: waveformVisibility.rvp !== false,
+            pap: waveformVisibility.pap !== false,
             avFlow: waveformVisibility.avFlow !== false,
             mvFlow: waveformVisibility.mvFlow !== false,
+            tvFlow: waveformVisibility.tvFlow !== false,
             pvFlow: waveformVisibility.pvFlow !== false,
-            laElastance: waveformVisibility.laElastance !== false,
-            lvElastance: waveformVisibility.lvElastance !== false
+            svFlow: waveformVisibility.svFlow !== false,
+            pvnFlow: waveformVisibility.pvnFlow !== false,
+            // elastance表示は廃止
         };
 
         if (history.time.length < 2) return;
@@ -604,28 +662,16 @@ class ChartManager {
             this.drawSweepCursor(chart, currentTime);
         }
 
-        // === エラスタンス（スイープ表示） ===
-        const eMax = scaleSettings.elastanceMax || 3;
-        if (this.charts.elastance) {
-            const chart = this.charts.elastance;
-            chart.ctx.fillStyle = '#000000';
-            chart.ctx.fillRect(0, 0, chart.width, chart.height);
-            this.drawSweepGrid(chart, 0, eMax);
-            if (visibility.laElastance) {
-                this.drawSweepLine(chart, history.time, history.laElastance, currentTime, 0, eMax, this.colors.la);
-            }
-            if (visibility.lvElastance) {
-                this.drawSweepLine(chart, history.time, history.lvElastance, currentTime, 0, eMax, this.colors.lv);
-            }
-            this.drawSweepCursor(chart, currentTime);
-        }
+        // === エラスタンス表示は廃止 ===
 
         // === 圧波形（スイープ表示） ===
         // 各波形の個別スケール設定
         // scaleSettingsに入っていれば使うが、なければデフォルト値を設定
         // LAは小さいため大きく表示するためにスケールを下げる（0-40など）
         const lvAoMax = scaleSettings.monitorPressureLvAoMax || 140;
-        const laMax = scaleSettings.monitorPressureLaMax || 40;  // 右房/左房は低圧系なので拡大表示
+        const laMax = scaleSettings.monitorPressureLaMax || 40;  // 低圧系
+        const rvPaMax = scaleSettings.monitorPressureRvPaMax || 60;
+        const raMax = scaleSettings.monitorPressureRaMax || laMax;
         const aoMax = lvAoMax;
         const lvMax = lvAoMax;
 
@@ -639,6 +685,9 @@ class ChartManager {
             if (visibility.art) pressureScales.push({ min: 0, max: aoMax, color: this.colors.ao });
             if (visibility.lvp) pressureScales.push({ min: 0, max: lvMax, color: this.colors.lv });
             if (visibility.lap) pressureScales.push({ min: 0, max: laMax, color: this.colors.la });
+            if (visibility.rap) pressureScales.push({ min: 0, max: raMax, color: this.colors.ra });
+            if (visibility.rvp) pressureScales.push({ min: 0, max: rvPaMax, color: this.colors.rv });
+            if (visibility.pap) pressureScales.push({ min: 0, max: rvPaMax, color: this.colors.pa });
             this.drawMultiScaleYAxis(chart, pressureScales);
 
             // ゼロライン（ベースライン）
@@ -655,13 +704,25 @@ class ChartManager {
             if (visibility.lap) {
                 this.drawSweepLine(chart, history.time, history.laPressure, currentTime, 0, laMax, this.colors.la);
             }
+            // 右房圧 (個別スケール raMax)
+            if (visibility.rap) {
+                this.drawSweepLine(chart, history.time, history.raPressure, currentTime, 0, raMax, this.colors.ra);
+            }
             // 左室圧 (個別スケール lvMax)
             if (visibility.lvp) {
                 this.drawSweepLine(chart, history.time, history.lvPressure, currentTime, 0, lvMax, this.colors.lv);
             }
+            // 右室圧 (個別スケール rvPaMax)
+            if (visibility.rvp) {
+                this.drawSweepLine(chart, history.time, history.rvPressure, currentTime, 0, rvPaMax, this.colors.rv);
+            }
             // 大動脈圧 (個別スケール aoMax)
             if (visibility.art) {
                 this.drawSweepLine(chart, history.time, history.aoPressure, currentTime, 0, aoMax, this.colors.ao);
+            }
+            // 肺動脈圧 (個別スケール rvPaMax)
+            if (visibility.pap) {
+                this.drawSweepLine(chart, history.time, history.paPressure, currentTime, 0, rvPaMax, this.colors.pa);
             }
             // 静脈圧 (スケールはLAと同じにするか、独自にするか。今回はLAに合わせるか表示しない) -- 以前削除したので描画しない
 
@@ -671,8 +732,11 @@ class ChartManager {
             // 凡例
             const legends = [];
             if (visibility.lap) legends.push({ label: 'LA', color: this.colors.la });
+            if (visibility.rap) legends.push({ label: 'RA', color: this.colors.ra });
             if (visibility.lvp) legends.push({ label: 'LV', color: this.colors.lv });
+            if (visibility.rvp) legends.push({ label: 'RV', color: this.colors.rv });
             if (visibility.art) legends.push({ label: 'AO', color: this.colors.ao });
+            if (visibility.pap) legends.push({ label: 'PA', color: this.colors.pa });
             chart.ctx.font = '10px sans-serif';
             chart.ctx.textAlign = 'right';
             let legendX = chart.width - 10;
@@ -686,13 +750,30 @@ class ChartManager {
         // === 弁Flow（スイープ表示） ===
         const flowMin = scaleSettings.flowMin || -200;
         const flowMax = scaleSettings.flowMax || 1200;
-        if (this.charts.flow) {
-            const chart = this.charts.flow;
+        if (this.charts.flowRight) {
+            const chart = this.charts.flowRight;
             chart.ctx.fillStyle = '#000000';
             chart.ctx.fillRect(0, 0, chart.width, chart.height);
             this.drawSweepGrid(chart, flowMin, flowMax);
+            if (visibility.svFlow) {
+                this.drawSweepLine(chart, history.time, history.systemicVenousFlow, currentTime, flowMin, flowMax, this.colors.vein, 1.5, true);
+            }
+            if (visibility.tvFlow) {
+                this.drawSweepLine(chart, history.time, history.tricuspidFlow, currentTime, flowMin, flowMax, this.colors.tricuspid, 1.5, true);
+            }
             if (visibility.pvFlow) {
-                this.drawSweepLine(chart, history.time, history.venousFlow, currentTime, flowMin, flowMax, this.colors.vein, 1.5, true);
+                this.drawSweepLine(chart, history.time, history.pulmonaryFlow, currentTime, flowMin, flowMax, this.colors.pulmonary, 1.5, true);
+            }
+            this.drawSweepCursor(chart, currentTime);
+        }
+
+        if (this.charts.flowLeft) {
+            const chart = this.charts.flowLeft;
+            chart.ctx.fillStyle = '#000000';
+            chart.ctx.fillRect(0, 0, chart.width, chart.height);
+            this.drawSweepGrid(chart, flowMin, flowMax);
+            if (visibility.pvnFlow) {
+                this.drawSweepLine(chart, history.time, history.venousFlow, currentTime, flowMin, flowMax, this.colors.pulmonaryVein, 1.5, true);
             }
             if (visibility.mvFlow) {
                 this.drawSweepLine(chart, history.time, history.mitralFlow, currentTime, flowMin, flowMax, this.colors.mitral, 1.5, true);
@@ -703,8 +784,7 @@ class ChartManager {
             this.drawSweepCursor(chart, currentTime);
         }
 
-        // === 左房PVループ ===
-        // 直近3心拍分のみ抽出
+        // === PVループ用の直近3心拍分のみ抽出 ===
         const beatDuration = 60 / (params.hr || 60);
         const keepDuration = beatDuration * 3;
         const lastHistoryTime = history.time[history.time.length - 1];
@@ -714,6 +794,38 @@ class ChartManager {
             startIndex = history.time.findIndex(t => t >= thresholdTime);
             if (startIndex < 0) startIndex = 0;
         }
+
+        // === 右房PVループ ===
+        const raVMax = scaleSettings.raVMax || 80;
+        const raPMax = scaleSettings.raPMax || 20;
+        this.drawPVLoop(
+            this.charts.raPV,
+            history.raVolume.slice(startIndex),
+            history.raPressure.slice(startIndex),
+            raVMax, raPMax,
+            params.raEes, params.raV0,
+            params.raAlpha, params.raBeta, params.raV0,
+            this.colors.ra
+        );
+        this.drawSavedRAPVLoops(this.charts.raPV, savedDrawings, raVMax, raPMax);
+        this.drawGridLabels(this.charts.raPV, 0, raVMax, 0, raPMax);
+
+        // === 右室PVループ ===
+        const rvVMax = scaleSettings.rvVMax || 160;
+        const rvPMax = scaleSettings.rvPMax || 60;
+        this.drawPVLoop(
+            this.charts.rvPV,
+            history.rvVolume.slice(startIndex),
+            history.rvPressure.slice(startIndex),
+            rvVMax, rvPMax,
+            params.rvEes, params.rvV0,
+            params.rvAlpha, params.rvBeta, params.rvV0,
+            this.colors.rv
+        );
+        this.drawSavedRVPVLoops(this.charts.rvPV, savedDrawings, rvVMax, rvPMax);
+        this.drawGridLabels(this.charts.rvPV, 0, rvVMax, 0, rvPMax);
+
+        // === 左房PVループ ===
 
         const laVMax = scaleSettings.laVMax || 60;
         const laPMax = scaleSettings.laPMax || 20;

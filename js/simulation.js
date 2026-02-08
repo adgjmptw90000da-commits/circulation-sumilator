@@ -12,13 +12,24 @@ class CirculationSimulator {
             laPressure: [],
             laVolume: [],
             laElastance: [],
+            laRetroSource: [],
             lvPressure: [],
             lvVolume: [],
             lvElastance: [],
+            raPressure: [],
+            raVolume: [],
+            raElastance: [],
+            rvPressure: [],
+            rvVolume: [],
+            rvElastance: [],
             aoPressure: [],
+            paPressure: [],
             mitralFlow: [],
             aorticFlow: [],
+            tricuspidFlow: [],
+            pulmonaryFlow: [],
             venousFlow: [],
+            systemicVenousFlow: [],
             venousPressure: [],  // 静脈圧の履歴
             ecg: []
         };
@@ -27,20 +38,32 @@ class CirculationSimulator {
         // 弁の状態（圧関係で決定）
         this.mitralValveOpen = true;
         this.aorticValveOpen = false;
+        this.tricuspidValveOpen = true;
+        this.pulmonaryValveOpen = false;
 
         // 心周期フェーズ（圧関係から導出）
         this.lvPhase = 'filling';  // 'isovolContraction', 'ejection', 'isovolRelaxation', 'filling'
         this.laPhase = 'passive';  // 'passive', 'contraction', 'relaxation'
+        this.rvPhase = 'filling';
+        this.raPhase = 'passive';
 
         // 収縮状態（時間で設定）
         this.lvContracting = false;  // 収縮中か（能動的収縮）
         this.lvRelaxing = false;     // 弛緩中か（能動的弛緩）
         this.laContracting = false;
         this.laRelaxing = false;
+        this.laContractionSuppressed = false;
+        this.rvContracting = false;
+        this.rvRelaxing = false;
+        this.raContracting = false;
+        this.raRelaxing = false;
+        this.raContractionSuppressed = false;
 
         // 収縮開始時のエラスタンスを記録（連続性のため）
         this.lvContractStartE = 0;
         this.laContractStartE = 0;
+        this.rvContractStartE = 0;
+        this.raContractStartE = 0;
 
         // 僧帽弁開放時の左房エラスタンス追跡
         this.laMVOpenE = 0;           // MV開放直前のエラスタンス
@@ -50,6 +73,8 @@ class CirculationSimulator {
         this.prevMitralValveOpenForLVEDP = false;
         this.pendingLVEDPUpdate = false;
         this.prevAorticValveOpen = false;
+        this.prevPulmonaryValveOpen = false;
+        this.prevTricuspidValveOpen = false;
         this.cycleMaxLVVolume = this.state.lvVolume;
         this.cycleMaxLVPressure = this.state.lvPressure;
 
@@ -59,13 +84,23 @@ class CirculationSimulator {
             pressure: 8      // その時点の圧
         };
         this.prevLaContracting = false;
+        this.laContractionSuppressed = false;
+        this.prevRaContracting = false;
+        this.raContractionSuppressed = false;
 
         // 導管期モデル用：LA容量範囲の追跡
         this.laVolumeMin = 25;       // LA最小容量（A波後）
         this.laVolumeReservoir = 50; // Reservoir phase最大容量
 
+        // 導管期モデル用：RA容量範囲の追跡
+        this.raVolumeMin = 30;       // RA最小容量（A波後）
+        this.raVolumeReservoir = 60; // Reservoir phase最大容量
+
         // オリフィス流量係数（ΔP: mmHg, 面積: cm^2, ρ: g/mL）
         this.orificeCoeff = Math.sqrt(2 * 1333 / 1.06);
+
+        // 肺静脈コンプライアンス基準値（逆行波の遅延基準に使用）
+        this.pvComplianceRef = this.calcPVCompliance(this.state.pvVolume);
     }
 
     updateParams(newParams) {
@@ -76,20 +111,34 @@ class CirculationSimulator {
         this.state = { ...INITIAL_STATE };
         this.mitralValveOpen = true;
         this.aorticValveOpen = false;
+        this.tricuspidValveOpen = true;
+        this.pulmonaryValveOpen = false;
         this.lvPhase = 'filling';
         this.laPhase = 'passive';
+        this.rvPhase = 'filling';
+        this.raPhase = 'passive';
         this.lvContracting = false;
         this.lvRelaxing = false;
         this.laContracting = false;
         this.laRelaxing = false;
+        this.laContractionSuppressed = false;
+        this.rvContracting = false;
+        this.rvRelaxing = false;
+        this.raContracting = false;
+        this.raRelaxing = false;
+        this.raContractionSuppressed = false;
         this.lvContractStartE = 0;
         this.laContractStartE = 0;
+        this.rvContractStartE = 0;
+        this.raContractStartE = 0;
         this.laMVOpenE = 0;
         this.laMVOpenTime = 0;
         this.prevMitralValveOpen = false;
         this.prevMitralValveOpenForLVEDP = false;
         this.pendingLVEDPUpdate = false;
         this.prevAorticValveOpen = false;
+        this.prevPulmonaryValveOpen = false;
+        this.prevTricuspidValveOpen = false;
         this.cycleMaxLVVolume = this.state.lvVolume;
         this.cycleMaxLVPressure = this.state.lvPressure;
         // LA EDPVR反転モデル用：アンカーポイントをリセット
@@ -98,9 +147,16 @@ class CirculationSimulator {
             pressure: 8
         };
         this.prevLaContracting = false;
+        this.laContractionSuppressed = false;
+        this.prevRaContracting = false;
+        this.raContractionSuppressed = false;
         // 導管期モデル用：LA容量範囲をリセット
         this.laVolumeMin = 25;
         this.laVolumeReservoir = 50;
+        // 導管期モデル用：RA容量範囲をリセット
+        this.raVolumeMin = 30;
+        this.raVolumeReservoir = 60;
+        this.pvComplianceRef = this.calcPVCompliance(this.state.pvVolume);
         this.clearHistory();
     }
 
@@ -279,6 +335,16 @@ class CirculationSimulator {
             this.laContractStartE = this.state.laElastance || this.calcEDPVRElastance(
                 this.state.laVolume, this.params.laAlpha, this.params.laBeta, this.params.laV0
             );
+            if (this.laContractStartE > this.params.laEes) {
+                this.laContractionSuppressed = true;
+            }
+        }
+
+        if (this.laContractionSuppressed) {
+            this.laContracting = false;
+            this.laRelaxing = false;
+            this.laContractionPhase = 0;
+            this.laRelaxationPhase = 0;
         }
 
         // LA EDPVR反転モデル：LA収縮終了時（laContracting: true → false）にアンカーポイント更新
@@ -288,6 +354,75 @@ class CirculationSimulator {
             this.laEdpvrAnchor.pressure = this.state.laPressure;
         }
         this.prevLaContracting = this.laContracting;
+
+        // 右房の収縮・弛緩状態（左房と同じタイミングだが抑制は独立）
+        const prevRaContracting = this.raContracting;
+        if (!this.params.laContractionEnabled) {
+            this.raContracting = false;
+            this.raRelaxing = false;
+            this.raContractionPhase = 0;
+            this.raRelaxationPhase = 0;
+        } else {
+            const raContractEnd = laContractionStart + laContractionDuration;
+            if (raContractEnd <= cycleDuration) {
+                if (t >= laContractionStart && t < raContractEnd) {
+                    this.raContracting = true;
+                    this.raRelaxing = false;
+                    this.raContractionPhase = (t - laContractionStart) / laContractionDuration;
+                } else if (t >= raContractEnd && t < raContractEnd + laRelaxationDuration) {
+                    this.raContracting = false;
+                    this.raRelaxing = true;
+                    this.raRelaxationPhase = (t - raContractEnd) / laRelaxationDuration;
+                } else {
+                    this.raContracting = false;
+                    this.raRelaxing = false;
+                }
+            } else {
+                const wrapEnd = raContractEnd - cycleDuration;
+                if (t >= laContractionStart || t < wrapEnd) {
+                    this.raContracting = true;
+                    this.raRelaxing = false;
+                    const elapsed = t >= laContractionStart ? (t - laContractionStart) : (t + cycleDuration - laContractionStart);
+                    this.raContractionPhase = elapsed / laContractionDuration;
+                } else if (t >= wrapEnd && t < wrapEnd + laRelaxationDuration) {
+                    this.raContracting = false;
+                    this.raRelaxing = true;
+                    this.raRelaxationPhase = (t - wrapEnd) / laRelaxationDuration;
+                } else {
+                    this.raContracting = false;
+                    this.raRelaxing = false;
+                }
+            }
+        }
+
+        if (this.raContracting && !prevRaContracting) {
+            this.raContractStartE = this.state.raElastance || this.calcEDPVRElastance(
+                this.state.raVolume, this.params.raAlpha, this.params.raBeta, this.params.raV0
+            );
+            if (this.raContractStartE > this.params.raEes) {
+                this.raContractionSuppressed = true;
+            }
+        }
+
+        if (this.raContractionSuppressed) {
+            this.raContracting = false;
+            this.raRelaxing = false;
+            this.raContractionPhase = 0;
+            this.raRelaxationPhase = 0;
+        }
+
+        // 右心系: LVタイミングに同期
+        const prevRvContracting = this.rvContracting;
+        this.rvContracting = this.lvContracting;
+        this.rvRelaxing = this.lvRelaxing;
+        this.rvContractionPhase = this.lvContractionPhase;
+        this.rvRelaxationPhase = this.lvRelaxationPhase;
+
+        if (this.rvContracting && !prevRvContracting) {
+            this.rvContractStartE = this.state.rvElastance || this.calcEDPVRElastance(
+                this.state.rvVolume, this.params.rvAlpha, this.params.rvBeta, this.params.rvV0
+            );
+        }
     }
 
     /**
@@ -331,6 +466,41 @@ class CirculationSimulator {
     }
 
     /**
+     * 右室フェーズを圧関係から判定
+     */
+    determineRVPhase() {
+        const rvP = this.state.rvPressure;
+        const raP = this.state.raPressure;
+        const paP = this.state.paPressure;
+
+        const tvShouldOpen = raP > rvP;
+        const pvShouldOpen = rvP > paP;
+
+        if (this.rvContracting || this.rvRelaxing) {
+            if (!tvShouldOpen && !pvShouldOpen) {
+                if (this.rvContracting) {
+                    this.rvPhase = 'isovolContraction';
+                } else {
+                    this.rvPhase = 'isovolRelaxation';
+                }
+            } else if (pvShouldOpen) {
+                this.rvPhase = 'ejection';
+            } else if (tvShouldOpen) {
+                this.rvPhase = 'filling';
+            }
+        } else {
+            if (tvShouldOpen) {
+                this.rvPhase = 'filling';
+            } else {
+                this.rvPhase = 'isovolRelaxation';
+            }
+        }
+
+        this.tricuspidValveOpen = tvShouldOpen && !this.rvContracting && (this.rvPhase === 'filling');
+        this.pulmonaryValveOpen = pvShouldOpen && (this.rvPhase === 'ejection');
+    }
+
+    /**
      * 左室エラスタンスを計算
      * - 収縮中: startE → Ees（滑らかに遷移、収縮末期でEes到達）
      * - 弛緩中: Ees → eMin
@@ -354,6 +524,53 @@ class CirculationSimulator {
             return eMax - (eMax - eMin) * this.smoothTransition(this.lvRelaxationPhase);
         } else {
             // 充満期: EDPVR上
+            return eMin;
+        }
+    }
+
+    /**
+     * 右室エラスタンスを計算
+     */
+    calcRVElastance() {
+        const eMin = this.calcEDPVRElastance(
+            this.state.rvVolume,
+            this.params.rvAlpha,
+            this.params.rvBeta,
+            this.params.rvV0
+        );
+        const eMax = this.params.rvEes;
+
+        if (this.rvContracting) {
+            const startE = Math.max(this.rvContractStartE, eMin);
+            return startE + (eMax - startE) * this.exponentialTransition(this.rvContractionPhase);
+        } else if (this.rvRelaxing) {
+            return eMax - (eMax - eMin) * this.exponentialTransition(this.rvRelaxationPhase);
+        } else {
+            return eMin;
+        }
+    }
+
+    /**
+     * 右房エラスタンスを計算
+     */
+    calcRAElastance() {
+        const eMin = this.calcEDPVRElastance(
+            this.state.raVolume,
+            this.params.raAlpha,
+            this.params.raBeta,
+            this.params.raV0
+        );
+        const eMax = this.params.raEes;
+
+        if (this.raContracting) {
+            const startE = Math.max(this.raContractStartE, eMin);
+            this.raPhase = 'contraction';
+            return startE + (eMax - startE) * this.exponentialTransition(this.raContractionPhase);
+        } else if (this.raRelaxing) {
+            this.raPhase = 'relaxation';
+            return eMax - (eMax - eMin) * this.exponentialTransition(this.raRelaxationPhase);
+        } else {
+            this.raPhase = 'passive';
             return eMin;
         }
     }
@@ -387,6 +604,17 @@ class CirculationSimulator {
     }
 
     /**
+     * 導管期のRA充満度に基づく重み(w)を計算
+     */
+    calcRAFillWeight(raVolume) {
+        const vMin = this.raVolumeMin;
+        const vMax = this.raVolumeReservoir;
+        if (vMax <= vMin) return 1.0;
+        const w = (raVolume - vMin) / (vMax - vMin);
+        return Math.max(0, Math.min(1, w));
+    }
+
+    /**
      * LA容量範囲を更新（動的追跡）
      * - LA収縮末期（A波後）にlaVolumeMinを更新
      * - MV閉鎖時（reservoir最大）にlaVolumeReservoirを更新
@@ -404,14 +632,28 @@ class CirculationSimulator {
     }
 
     /**
-     * 静脈流入計算（リザーバーモデル）
+     * RA容量範囲を更新（導管期モデル用）
+     */
+    updateRAVolumeRange() {
+        if (this.prevRaContracting && !this.raContracting) {
+            this.raVolumeMin = this.state.raVolume;
+        }
+        if (this.prevTricuspidValveOpen && !this.tricuspidValveOpen) {
+            this.raVolumeReservoir = this.state.raVolume;
+        }
+        this.prevTricuspidValveOpen = this.tricuspidValveOpen;
+        this.prevRaContracting = this.raContracting;
+    }
+
+    /**
+     * 体静脈流入計算（リザーバーモデル）
      */
     calcVenousInflow() {
         // Pmsf固定モード: 静脈圧をPvに固定（SVR変化でVR曲線が動かない前提）
         const vvPressure = this.params.pv;
         this.state.vvPressure = Math.max(0, vvPressure);
 
-        const deltaP = this.state.vvPressure - this.state.laPressure;
+        const deltaP = this.state.vvPressure - this.state.raPressure;
 
         return deltaP / this.params.rv;
     }
@@ -556,6 +798,33 @@ class CirculationSimulator {
     }
 
     /**
+     * 三尖弁流量計算
+     */
+    calcTricuspidFlow(dt) {
+        let forwardFlow = 0;
+
+        if (this.tricuspidValveOpen) {
+            const deltaPForward = this.state.raPressure - this.state.rvPressure;
+            if (deltaPForward > 0) {
+                const r = Math.max(1e-6, this.params.rt);
+                const l = this.params.lt;
+                if (l > 0) {
+                    const qPrev = this.state.tricuspidForwardFlow || 0;
+                    const dQdt = (deltaPForward - r * qPrev) / l;
+                    forwardFlow = qPrev + dQdt * dt;
+                } else {
+                    forwardFlow = deltaPForward / r;
+                }
+            }
+        }
+
+        if (forwardFlow < 0) forwardFlow = 0;
+        this.state.tricuspidForwardFlow = forwardFlow;
+
+        return forwardFlow;
+    }
+
+    /**
      * 大動脈弁流量計算
      */
     calcAorticFlow(dt) {
@@ -601,6 +870,116 @@ class CirculationSimulator {
         return flow;
     }
 
+    /**
+     * 肺動脈弁流量計算
+     */
+    calcPulmonaryFlow(dt) {
+        let forwardFlow = 0;
+
+        if (this.pulmonaryValveOpen) {
+            const deltaPForward = this.state.rvPressure - this.state.paPressure;
+            if (deltaPForward > 0) {
+                const r = Math.max(1e-6, this.params.rp);
+                const l = this.params.lp;
+                if (l > 0) {
+                    const qPrev = this.state.pulmonaryForwardFlow || 0;
+                    const dQdt = (deltaPForward - r * qPrev) / l;
+                    forwardFlow = qPrev + dQdt * dt;
+                } else {
+                    forwardFlow = deltaPForward / r;
+                }
+            }
+        }
+
+        if (forwardFlow < 0) forwardFlow = 0;
+        this.state.pulmonaryForwardFlow = forwardFlow;
+
+        return forwardFlow;
+    }
+
+    /**
+     * 肺動脈 → 肺静脈リザーバー流量
+     */
+    calcPulmonaryVascularFlow() {
+        const pvrMmHg = Math.max(1e-6, this.params.pvr / 1333);
+        const paReservoirPressure = Number.isFinite(this.state.paReservoirPressure)
+            ? this.state.paReservoirPressure
+            : this.state.paPressure;
+        const pvReservoirPressure = Number.isFinite(this.state.pvReservoirPressure)
+            ? this.state.pvReservoirPressure
+            : this.state.laPressure;
+        const deltaP = paReservoirPressure - pvReservoirPressure;
+        if (!Number.isFinite(deltaP) || deltaP <= 0) return 0;
+        return deltaP / pvrMmHg;
+    }
+
+    /**
+     * 肺静脈流入（肺静脈リザーバー → 左房）
+     */
+    calcPulmonaryVenousFlow() {
+        const pvrMmHg = Math.max(1e-6, this.params.pvrVenous / 1333);
+        const pvReservoirPressure = Number.isFinite(this.state.pvReservoirPressure)
+            ? this.state.pvReservoirPressure
+            : this.state.laPressure;
+        const deltaP = pvReservoirPressure - this.state.laPressure;
+        if (!Number.isFinite(deltaP)) return 0;
+        return deltaP / pvrMmHg;
+    }
+
+    /**
+     * 肺静脈リザーバー圧（EDPVR）
+     */
+    calcPVPressure(volume) {
+        const safeVolume = Number.isFinite(volume) ? volume : (this.params.pvV0 + 1);
+        const vDiff = Math.max(0, safeVolume - this.params.pvV0);
+        return this.params.pvAlpha * (Math.exp(this.params.pvBeta * vDiff) - 1);
+    }
+
+    /**
+     * 肺静脈コンプライアンス（容量依存）
+     */
+    calcPVCompliance(volume) {
+        const safeVolume = Number.isFinite(volume) ? volume : (this.params.pvV0 + 1);
+        const vDiff = Math.max(0, safeVolume - this.params.pvV0);
+        const denom = this.params.pvAlpha * this.params.pvBeta * Math.exp(this.params.pvBeta * vDiff);
+        return denom > 0 ? 1 / denom : 1e6;
+    }
+
+    updateLARetroSources(dt) {
+        const tau = Math.max(0.005, this.params.paRetroTau || 0.06);
+        const meanTau = Math.max(0.05, this.params.paRetroMeanTau || 0.5);
+        const alpha = dt / (tau + dt);
+        const alphaMean = dt / (meanTau + dt);
+        const currentLA = Number.isFinite(this.state.laPressure) ? this.state.laPressure : 0;
+        const prevLPF = Number.isFinite(this.state.laRetroLPF) ? this.state.laRetroLPF : currentLA;
+        const prevMean = Number.isFinite(this.state.laMeanPressure) ? this.state.laMeanPressure : currentLA;
+        this.state.laRetroLPF = prevLPF + (currentLA - prevLPF) * alpha;
+        this.state.laMeanPressure = prevMean + (currentLA - prevMean) * alphaMean;
+    }
+
+    calcPARetroWave() {
+        const pvCompliance = this.state.pvCompliance || this.params.cp;
+        const pwvCurrent = this.calcPWVFromCompliance(pvCompliance);
+        const refCompliance = this.pvComplianceRef || pvCompliance;
+        const pwvRef = this.calcPWVFromCompliance(refCompliance);
+        const baseDelay = Math.max(0.04, this.params.paRetroBaseDelay || 0.16);
+        const delay = baseDelay * (pwvRef / Math.max(0.1, pwvCurrent));
+        const fallback = this.state.laRetroLPF ?? this.state.laPressure;
+        const delayedLA = this.getHistoryValueAtTime(
+            this.history.laRetroSource,
+            this.state.time - delay,
+            fallback
+        );
+        const meanLA = this.state.laMeanPressure ?? this.state.laPressure;
+        const retroWave = delayedLA - meanLA;
+        const gateP = this.params.paRetroGateP ?? 6;
+        const gateW = this.params.paRetroGateW ?? 2;
+        const pvPressure = this.state.pvReservoirPressure ?? this.state.laPressure;
+        const gate = 1 / (1 + Math.exp(-(pvPressure - gateP) / Math.max(0.5, gateW)));
+        const gain = this.params.paRetroGain ?? 0.3;
+        return gain * gate * retroWave;
+    }
+
 
 
     /**
@@ -619,6 +998,10 @@ class CirculationSimulator {
             this.state.cycleCount++;
             cycleWrapped = true;
         }
+        if (cycleWrapped) {
+            this.laContractionSuppressed = false;
+            this.raContractionSuppressed = false;
+        }
         const cycleTime = this.state.cyclePhase * timings.cycleDuration;
 
         // === Step 1: 収縮・弛緩状態の更新（時間ベース）===
@@ -626,6 +1009,7 @@ class CirculationSimulator {
 
         // === Step 2: フェーズ判定（圧関係ベース）===
         this.determineLVPhase();
+        this.determineRVPhase();
 
         const aorticJustClosed = this.prevAorticValveOpen && !this.aorticValveOpen;
         if (aorticJustClosed) {
@@ -640,35 +1024,58 @@ class CirculationSimulator {
         // === Step 3: 流量計算（前回の圧を使用）===
         const mitralFlow = this.calcMitralFlow(dt);
         const aorticFlow = this.calcAorticFlow(dt);
-        const venousFlow = this.calcVenousInflow();
+        const tricuspidFlow = this.calcTricuspidFlow(dt);
+        const pulmonaryFlow = this.calcPulmonaryFlow(dt);
+        const systemicVenousFlow = this.calcVenousInflow();
+        const pulmonaryVascularFlow = this.calcPulmonaryVascularFlow();
+        const pulmonaryVenousFlow = this.calcPulmonaryVenousFlow();
 
         this.state.mitralFlow = mitralFlow;
         this.state.aorticFlow = aorticFlow;
-        this.state.venousFlow = venousFlow;
+        this.state.tricuspidFlow = tricuspidFlow;
+        this.state.pulmonaryFlow = pulmonaryFlow;
+        this.state.systemicVenousFlow = systemicVenousFlow;
+        this.state.venousFlow = pulmonaryVenousFlow;
+        this.state.pulmonaryVenousFlow = pulmonaryVenousFlow;
 
         // === Step 4: 容量更新 ===
-        this.state.laVolume += (venousFlow - mitralFlow) * dt;
+        this.state.raVolume += (systemicVenousFlow - tricuspidFlow) * dt;
+        this.state.rvVolume += (tricuspidFlow - pulmonaryFlow) * dt;
+
+        this.state.laVolume += (pulmonaryVenousFlow - mitralFlow) * dt;
 
         this.state.lvVolume += (mitralFlow - aorticFlow) * dt;
         this.state.lvVolume = Math.max(this.state.lvVolume, this.params.lvV0 + 0.1);
+        this.state.rvVolume = Math.max(this.state.rvVolume, this.params.rvV0 + 0.1);
+        if (Number.isFinite(pulmonaryVascularFlow) && Number.isFinite(pulmonaryVenousFlow)) {
+            this.state.pvVolume += (pulmonaryVascularFlow - pulmonaryVenousFlow) * dt;
+        }
+        this.state.pvVolume = Math.max(this.state.pvVolume, this.params.pvV0 + 0.1);
 
 
         // === Step 5: 左房パッシブエラスタンスの更新 ===
         this.updateLAPassiveElastance(dt);
 
-        // === Step 5.5: LA容量範囲の更新（導管期モデル用）===
+        // === Step 5.5: LA/RA容量範囲の更新（導管期モデル用）===
         this.updateLAVolumeRange();
+        this.updateRAVolumeRange();
 
         // === Step 6: エラスタンス計算 ===
         const lvE = this.calcLVElastance();
+        const rvE = this.calcRVElastance();
         const laE = this.calcLAElastance(lvE);
+        const raE = this.calcRAElastance();
 
         this.state.laElastance = laE;
         this.state.lvElastance = lvE;
+        this.state.raElastance = raE;
+        this.state.rvElastance = rvE;
 
         // === Step 7: 圧力計算 ===
         // LV圧: P = E × (V - V0)
         this.state.lvPressure = Math.max(0, lvE * (this.state.lvVolume - this.params.lvV0));
+        this.state.rvPressure = Math.max(0, rvE * (this.state.rvVolume - this.params.rvV0));
+        const raEDPVRPressure = raE * (this.state.raVolume - this.params.raV0);
 
         // LA圧: 導管期は充満度に応じてLV圧との補間
         const laEDPVRPressure = Math.max(0, laE * (this.state.laVolume - this.params.laV0));
@@ -698,6 +1105,36 @@ class CirculationSimulator {
             this.state.laPressure = laEDPVRPressure;
         }
 
+        // 肺静脈リザーバー圧（容量依存EDPVR）
+        const pvPressure = this.calcPVPressure(this.state.pvVolume);
+        this.state.pvReservoirPressure = Number.isFinite(pvPressure)
+            ? Math.max(0, pvPressure)
+            : (this.state.pvReservoirPressure ?? 0);
+        const pvCompliance = this.calcPVCompliance(this.state.pvVolume);
+        this.state.pvCompliance = Number.isFinite(pvCompliance)
+            ? pvCompliance
+            : (this.state.pvCompliance ?? this.params.cp);
+
+        // LA逆行波のためのソース更新
+        this.updateLARetroSources(dt);
+
+        // RA圧: 導管期は充満度に応じてRV圧との補間 + suction項
+        const isRAConduitPhase = this.tricuspidValveOpen && !this.raContracting && !this.raRelaxing;
+        if (isRAConduitPhase) {
+            const w = this.calcRAFillWeight(this.state.raVolume);
+            let raPressure = w * raEDPVRPressure + (1 - w) * this.state.rvPressure;
+
+            const qForward = Math.max(0, this.state.tricuspidForwardFlow || 0);
+            const area = this.params.tvArea || 0;
+            if (qForward > 0 && area > 0) {
+                const deltaPBern = 0.0004 * Math.pow(qForward / area, 2);
+                raPressure -= deltaPBern;
+            }
+            this.state.raPressure = raPressure;
+        } else {
+            this.state.raPressure = raEDPVRPressure;
+        }
+
         if (cycleWrapped) {
             this.state.lvEDP = this.cycleMaxLVPressure;
             this.cycleMaxLVVolume = this.state.lvVolume;
@@ -725,7 +1162,7 @@ class CirculationSimulator {
         const aorticOutflow = aoReservoirPressure / svrMmHg; // 全身への流出量
 
         // 静脈容量更新: 流入（全身から） - 流出（左房へ）
-        this.state.vvVolume += (aorticOutflow - venousFlow) * dt;
+        this.state.vvVolume += (aorticOutflow - systemicVenousFlow) * dt;
 
         // リザーバー圧（Windkessel）
         const nextReservoirPressure = Math.max(
@@ -735,9 +1172,35 @@ class CirculationSimulator {
         this.state.aoReservoirPressure = nextReservoirPressure;
 
         // 収縮期（順行性流入あり）にWater hammer項を上乗せ
-        const waterHammerPressure = this.calcWaterHammerPressure(aorticFlow);
+        const hasForwardAortic = this.aorticValveOpen && aorticFlow > 0;
+        const waterHammerPressure = hasForwardAortic
+            ? this.calcWaterHammerPressure(aorticFlow, this.params.aoArea, this.params.ca)
+            : 0;
         const reflectedPressure = this.calcAorticReflectedPressure();
         this.state.aoPressure = Math.max(0, nextReservoirPressure + waterHammerPressure + reflectedPressure);
+
+        // === 肺動脈圧（拡張期: Windkessel + 収縮期: Water hammer上乗せ）===
+        const paReservoirPressure = this.state.paReservoirPressure ?? this.state.paPressure;
+        const pulmonaryOutflow = pulmonaryVascularFlow;
+        const nextPaReservoirPressure = Math.max(
+            0,
+            paReservoirPressure + (pulmonaryFlow - pulmonaryOutflow) / this.params.cp * dt
+        );
+        this.state.paReservoirPressure = nextPaReservoirPressure;
+        const hasForwardPA = this.pulmonaryValveOpen && pulmonaryFlow > 0;
+        const paWaterHammer = hasForwardPA
+            ? this.calcWaterHammerPressure(pulmonaryFlow, this.params.paArea, this.params.cp)
+            : 0;
+        const paWhTau = Math.max(0.005, this.params.paWhDecayTau || 0.02);
+        const paWhPrev = this.state.paWhSmoothed || 0;
+        const paWhSmoothed = paWhPrev + (paWaterHammer - paWhPrev) * (dt / (paWhTau + dt));
+        this.state.paWhSmoothed = paWhSmoothed;
+        const paRetro = this.calcPARetroWave();
+        const paForward = nextPaReservoirPressure + paWhSmoothed;
+        this.state.paPressureForward = paForward;
+        this.state.paPressureRetro = paRetro;
+        this.state.paPressure = Math.max(0, paForward + paRetro);
+
 
         // ECG生成
         this.state.ecgValue = this.generateECG(cycleTime, timings);
@@ -755,13 +1218,24 @@ class CirculationSimulator {
         h.laPressure.push(this.state.laPressure);
         h.laVolume.push(this.state.laVolume);
         h.laElastance.push(this.state.laElastance);
+        h.laRetroSource.push(this.state.laRetroLPF ?? this.state.laPressure);
         h.lvPressure.push(this.state.lvPressure);
         h.lvVolume.push(this.state.lvVolume);
         h.lvElastance.push(this.state.lvElastance);
+        h.raPressure.push(this.state.raPressure);
+        h.raVolume.push(this.state.raVolume);
+        h.raElastance.push(this.state.raElastance);
+        h.rvPressure.push(this.state.rvPressure);
+        h.rvVolume.push(this.state.rvVolume);
+        h.rvElastance.push(this.state.rvElastance);
         h.aoPressure.push(this.state.aoPressure);
+        h.paPressure.push(this.state.paPressure);
         h.mitralFlow.push(this.state.mitralFlow);
         h.aorticFlow.push(this.state.aorticFlow);
+        h.tricuspidFlow.push(this.state.tricuspidFlow);
+        h.pulmonaryFlow.push(this.state.pulmonaryFlow);
         h.venousFlow.push(this.state.venousFlow);
+        h.systemicVenousFlow.push(this.state.systemicVenousFlow);
         h.venousPressure.push(this.state.vvPressure || this.params.pv); // 動的計算値、なければ固定値
         h.ecg.push(this.state.ecgValue || 0);
 
@@ -785,22 +1259,27 @@ class CirculationSimulator {
      * PWV = k / sqrt(Ca) の簡易モデル
      */
     calcPWV() {
+        return this.calcPWVFromCompliance(this.params.ca);
+    }
+
+    calcPWVFromCompliance(compliance) {
         const k = 2.5;  // 較正定数（Ca=1.5で PWV ≈ 2.0 m/s程度）
-        const PWV = k / Math.sqrt(this.params.ca);
-        return PWV;  // [m/s]
+        const c = Math.max(0.1, compliance || 1);
+        const PWV = k / Math.sqrt(c);
+        return PWV;
     }
 
     /**
      * Water hammer式で収縮期の圧上乗せ項を計算
      * ΔP = ρ * c * Δv から、Qと断面積で表現
      */
-    calcWaterHammerPressure(aorticFlow) {
-        if (aorticFlow <= 0) return 0;
-        const areaCm2 = Math.max(0.1, this.params.aoArea || 4.0);
-        const pwv = this.calcPWV(); // [m/s]
+    calcWaterHammerPressure(flow, areaCm2, compliance) {
+        if (flow <= 0) return 0;
+        const area = Math.max(0.1, areaCm2 || 4.0);
+        const pwv = this.calcPWVFromCompliance(compliance || this.params.ca); // [m/s]
         const rho = 1060; // [kg/m^3]
-        const flowM3s = aorticFlow * 1e-6; // [mL/s] -> [m^3/s]
-        const areaM2 = areaCm2 * 1e-4;     // [cm^2] -> [m^2]
+        const flowM3s = flow * 1e-6; // [mL/s] -> [m^3/s]
+        const areaM2 = area * 1e-4;     // [cm^2] -> [m^2]
         const deltaPpa = rho * pwv * (flowM3s / areaM2); // [Pa]
         return deltaPpa / 133.322; // [mmHg]
     }
@@ -827,7 +1306,7 @@ class CirculationSimulator {
         const svrStrength = Math.min(1.4, Math.max(0.7, Math.pow(svrRatio, 0.5)));
         const gammaCentralBase = Math.min(0.22, Math.max(0.05, this.calcReflectionCoefficient() * 0.25));
         const gammaCentral = Math.min(0.26, Math.max(0.04, gammaCentralBase * svrStrength));
-        return gammaCentral * this.calcWaterHammerPressure(delayedFlow);
+        return gammaCentral * this.calcWaterHammerPressure(delayedFlow, this.params.aoArea, this.params.ca);
     }
 
     /**
