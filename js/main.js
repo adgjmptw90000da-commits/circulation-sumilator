@@ -880,6 +880,8 @@ class App {
         const simpleMapping = {
             'simple-hr': 'hr',
             'simple-pv': 'pv',
+            'simple-rv-ees': 'rvEes',
+            'simple-pvr': 'pvr',
             'simple-lv-ees': 'lvEes',
             'simple-lv-alpha': 'lvAlpha',
             'simple-svr': 'svr',
@@ -1026,6 +1028,8 @@ class App {
 
         setInput('simple-hr', params.hr);
         setInput('simple-pv', params.pv);
+        setInput('simple-rv-ees', params.rvEes);
+        setInput('simple-pvr', params.pvr);
         setInput('simple-lv-ees', params.lvEes);
         setInput('simple-lv-alpha', params.lvAlpha);
         setInput('simple-svr', params.svr);
