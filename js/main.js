@@ -852,7 +852,8 @@ class App {
             as: { enabledKey: 'asEnabled', valueKey: 'asAva', levels: { mild: 1.7, moderate: 1.2, severe: 0.7 } },
             ar: { enabledKey: 'arEnabled', valueKey: 'arEroa', levels: { mild: 0.3, moderate: 0.5, severe: 0.8 } },
             ms: { enabledKey: 'msEnabled', valueKey: 'msMva', levels: { mild: 1.7, moderate: 1.2, severe: 0.7 } },
-            mr: { enabledKey: 'mrEnabled', valueKey: 'mrEroa', levels: { mild: 0.1, moderate: 0.3, severe: 0.5 } }
+            mr: { enabledKey: 'mrEnabled', valueKey: 'mrEroa', levels: { mild: 0.1, moderate: 0.3, severe: 0.5 } },
+            tr: { enabledKey: 'trEnabled', valueKey: 'trEroa', levels: { mild: 0.1, moderate: 0.3, severe: 0.5 } }
         };
 
         Object.entries(valveConfig).forEach(([key, config]) => {
@@ -977,10 +978,12 @@ class App {
         const arValue = params.arEnabled ? pickSeverity(params.arEroa, { mild: 0.3, moderate: 0.5, severe: 0.8 }) : 'none';
         const msValue = params.msEnabled ? pickSeverity(params.msMva, { mild: 1.7, moderate: 1.2, severe: 0.7 }) : 'none';
         const mrValue = params.mrEnabled ? pickSeverity(params.mrEroa, { mild: 0.1, moderate: 0.3, severe: 0.5 }) : 'none';
+        const trValue = params.trEnabled ? pickSeverity(params.trEroa, { mild: 0.1, moderate: 0.3, severe: 0.5 }) : 'none';
         setSelect('simple-as', asValue);
         setSelect('simple-ar', arValue);
         setSelect('simple-ms', msValue);
         setSelect('simple-mr', mrValue);
+        setSelect('simple-tr', trValue);
     }
 
     getScaleSettings() {

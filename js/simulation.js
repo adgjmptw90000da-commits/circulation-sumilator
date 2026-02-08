@@ -821,7 +821,20 @@ class CirculationSimulator {
         if (forwardFlow < 0) forwardFlow = 0;
         this.state.tricuspidForwardFlow = forwardFlow;
 
-        return forwardFlow;
+        let flow = forwardFlow;
+
+        // 逆流（RV → RA）
+        if (this.params.trEnabled) {
+            const deltaPReg = this.state.rvPressure - this.state.raPressure;
+            if (deltaPReg > 0) {
+                const area = Math.max(0, this.params.trEroa);
+                const cd = Math.max(0, this.params.trCd);
+                const regFlow = this.calcOrificeFlow(deltaPReg, area, cd);
+                flow -= regFlow;
+            }
+        }
+
+        return flow;
     }
 
     /**

@@ -30,6 +30,9 @@ const DEFAULT_PARAMS = {
     rt: 0.01,         // mmHg·s/mL
     lt: 0.0001,       // mmHg·s²/mL
     tvArea: 7.0,      // cm^2（正常三尖弁面積）
+    trEnabled: false, // TR（三尖弁逆流）
+    trEroa: 0.1,      // cm^2（逆流弁口面積）
+    trCd: 0.75,       // 逆流オリフィス係数（Cd）
 
     // 僧帽弁
     rm: 0.01,         // mmHg·s/mL
