@@ -828,7 +828,8 @@ class App {
             'param-ca': 'ca',
             'param-ao-area': 'aoArea',
             'param-svr': 'svr',
-            'param-ecmo-flow': 'ecmoFlowLpm'
+            'param-ecmo-flow': 'ecmoFlowLpm',
+            'param-impella-flow': 'impellaFlowLpm'
         };
 
         for (const [inputId, paramKey] of Object.entries(paramMapping)) {
@@ -888,6 +889,14 @@ class App {
             ecmoSelect.addEventListener('change', (e) => {
                 const enabled = e.target.value === 'on';
                 applyParamUpdate('ecmoEnabled', enabled);
+            });
+        }
+
+        const impellaSelect = document.getElementById('param-impella');
+        if (impellaSelect) {
+            impellaSelect.addEventListener('change', (e) => {
+                const enabled = e.target.value === 'on';
+                applyParamUpdate('impellaEnabled', enabled);
             });
         }
     }
@@ -1059,6 +1068,11 @@ class App {
         const ecmoSelect = document.getElementById('param-ecmo');
         if (ecmoSelect) {
             ecmoSelect.value = params.ecmoEnabled ? 'on' : 'off';
+        }
+        setInput('param-impella-flow', params.impellaFlowLpm);
+        const impellaSelect = document.getElementById('param-impella');
+        if (impellaSelect) {
+            impellaSelect.value = params.impellaEnabled ? 'on' : 'off';
         }
 
         setInput('simple-hr', params.hr);

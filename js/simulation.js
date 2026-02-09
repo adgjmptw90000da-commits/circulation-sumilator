@@ -1078,12 +1078,15 @@ class CirculationSimulator {
         const ecmoFlow = this.params.ecmoEnabled
             ? (this.params.ecmoFlowLpm || 0) * 1000 / 60
             : 0;
+        const impellaFlow = this.params.impellaEnabled
+            ? (this.params.impellaFlowLpm || 0) * 1000 / 60
+            : 0;
         this.state.raVolume += (systemicVenousFlow - tricuspidFlow - ecmoFlow) * dt;
         this.state.rvVolume += (tricuspidFlow - pulmonaryFlow) * dt;
 
         this.state.laVolume += (pulmonaryVenousFlow - mitralFlow) * dt;
 
-        this.state.lvVolume += (mitralFlow - aorticFlow) * dt;
+        this.state.lvVolume += (mitralFlow - aorticFlow - impellaFlow) * dt;
         this.state.lvVolume = Math.max(this.state.lvVolume, this.params.lvV0 + 0.1);
         this.state.rvVolume = Math.max(this.state.rvVolume, this.params.rvV0 + 0.1);
         if (Number.isFinite(pulmonaryVascularFlow) && Number.isFinite(pulmonaryVenousFlow)) {
@@ -1217,7 +1220,7 @@ class CirculationSimulator {
         this.state.vvVolume += (aorticOutflow - systemicVenousFlow) * dt;
 
         // リザーバー圧（Windkessel）
-        const aorticInflow = aorticFlow + ecmoFlow;
+        const aorticInflow = aorticFlow + ecmoFlow + impellaFlow;
         const nextReservoirPressure = Math.max(
             0,
             aoReservoirPressure + (aorticInflow - aorticOutflow) / this.params.ca * dt

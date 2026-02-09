@@ -101,7 +101,9 @@ const DEFAULT_PARAMS = {
 
     // MCS / V-A ECMO
     ecmoEnabled: false,
-    ecmoFlowLpm: 3.0  // L/min（固定流量）
+    ecmoFlowLpm: 3.0,  // L/min（固定流量）
+    impellaEnabled: false,
+    impellaFlowLpm: 3.0 // L/min（固定流量）
 };
 
 // シミュレーション設定
