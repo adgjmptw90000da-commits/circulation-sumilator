@@ -52,23 +52,10 @@ class App {
         this.updateParamGroupVisibility();
         this.updateSimpleGroupVisibility();
         this.setupNumberSteppers();
-        this.applyParamLabelSizing();
         this.setParamsTab(this.activeParamsTab);
         this.renderSavedDrawings();
         this.setAdminLoggedIn(false);
         this.restoreAdminSession();
-    }
-
-    applyParamLabelSizing() {
-        const baseLabel = 'RA Ees (mmHg/mL)';
-        const limit = baseLabel.length;
-        document.querySelectorAll('.param-row label').forEach((label) => {
-            if (label.classList.contains('label-small')) return;
-            const text = (label.textContent || '').trim();
-            if (text.length > limit) {
-                label.classList.add('label-small');
-            }
-        });
     }
 
     bindEvents() {
@@ -89,7 +76,7 @@ class App {
         const modelToggleBtn = document.getElementById('modelToggleBtn');
         if (modelToggleBtn) {
             modelToggleBtn.addEventListener('click', () => {
-                window.location.href = 'legacy/index.html';
+                window.location.href = '../index.html';
             });
         }
 
@@ -644,10 +631,9 @@ class App {
 
     computeBalanceCurve(paramsSnapshot, xMax) {
         const points = 25;
-        const steadyBeats = 20;
-        const sampleBeats = 3;
+        const durationSec = 6;
         if (this.balanceWorkerFailed || typeof Worker === 'undefined') {
-            return this.computeBalanceCurveAsync(paramsSnapshot, xMax, points, steadyBeats, sampleBeats);
+            return Promise.resolve(this.computeBalanceCurveSync(paramsSnapshot, xMax, points, durationSec));
         }
 
         if (!this.balanceWorker) {
@@ -672,9 +658,7 @@ class App {
             const timeout = setTimeout(() => {
                 if (!this.balanceCurveRequests.has(token)) return;
                 this.balanceCurveRequests.delete(token);
-                this.balanceWorkerFailed = true;
-                this.computeBalanceCurveAsync(paramsSnapshot, xMax, points, steadyBeats, sampleBeats)
-                    .then(resolve);
+                resolve(this.computeBalanceCurveSync(paramsSnapshot, xMax, points, durationSec));
             }, 1200);
             this.balanceCurveRequests.set(token, { resolve, timeout });
             this.balanceWorker.postMessage({
@@ -682,69 +666,12 @@ class App {
                 params: paramsSnapshot,
                 xMax,
                 points,
-                beats: steadyBeats,
-                sampleBeats
+                durationSec
             });
         });
     }
 
-    computeBalanceCurveAsync(paramsSnapshot, xMax, points = 25, beats = 20, sampleBeats = 3) {
-        const totalPoints = Math.max(2, points);
-        const results = new Array(totalPoints);
-        let index = 0;
-
-        return new Promise((resolve) => {
-            const runNext = () => {
-                if (index >= totalPoints) {
-                    resolve(results);
-                    return;
-                }
-                const pvTarget = (xMax * index) / (totalPoints - 1);
-                this.computeBalancePointAsync(paramsSnapshot, pvTarget, beats, sampleBeats)
-                    .then((y) => {
-                        results[index] = { x: pvTarget, y };
-                        index += 1;
-                        setTimeout(runNext, 0);
-                    });
-            };
-            runNext();
-        });
-    }
-
-    computeBalancePointAsync(paramsSnapshot, pvTarget, beats, sampleBeats) {
-        return new Promise((resolve) => {
-            const sim = new CirculationSimulator();
-            sim.updateParams({ ...paramsSnapshot, pv: pvTarget });
-            const hr = sim.params.hr || 75;
-            const stepsPerBeat = Math.max(1, Math.floor((60 / hr) / SIM_CONFIG.dt));
-            const totalSteps = stepsPerBeat * Math.max(1, beats);
-            const chunk = 250;
-            let step = 0;
-
-            const runChunk = () => {
-                const end = Math.min(step + chunk, totalSteps);
-                for (; step < end; step++) {
-                    sim.step();
-                }
-                if (step < totalSteps) {
-                    setTimeout(runChunk, 0);
-                    return;
-                }
-                const history = sim.getHistory();
-                const sampleSteps = stepsPerBeat * Math.max(1, sampleBeats);
-                const startIndex = Math.max(0, history.time.length - sampleSteps);
-                const recentAoFlow = history.aorticFlow.slice(startIndex);
-                const meanAo = recentAoFlow.length
-                    ? recentAoFlow.reduce((a, b) => a + b, 0) / recentAoFlow.length
-                    : 0;
-                resolve(meanAo * 60 / 1000);
-            };
-
-            runChunk();
-        });
-    }
-
-    computeBalanceCurveSync(paramsSnapshot, xMax, points = 25, beats = 20, sampleBeats = 3) {
+    computeBalanceCurveSync(paramsSnapshot, xMax, points = 25, durationSec = 6) {
         const results = [];
         for (let i = 0; i < points; i++) {
             const pvTarget = (xMax * i) / (points - 1);
@@ -752,13 +679,12 @@ class App {
             sim.updateParams({ ...paramsSnapshot, pv: pvTarget });
             const hr = sim.params.hr || 75;
             const stepsPerBeat = Math.max(1, Math.floor((60 / hr) / SIM_CONFIG.dt));
-            const totalSteps = stepsPerBeat * Math.max(1, beats);
+            const totalSteps = Math.max(stepsPerBeat, Math.floor(durationSec / SIM_CONFIG.dt));
             for (let step = 0; step < totalSteps; step++) {
                 sim.step();
             }
             const history = sim.getHistory();
-            const sampleSteps = stepsPerBeat * Math.max(1, sampleBeats);
-            const startIndex = Math.max(0, history.time.length - sampleSteps);
+            const startIndex = Math.max(0, history.time.length - stepsPerBeat);
             const recentAoFlow = history.aorticFlow.slice(startIndex);
             const meanAo = recentAoFlow.length
                 ? recentAoFlow.reduce((a, b) => a + b, 0) / recentAoFlow.length
@@ -779,17 +705,6 @@ class App {
             'param-pr': 'prInterval',
             'param-pv': 'pv',
             'param-rv': 'rv',
-            'param-ra-ees': 'raEes',
-            'param-ra-alpha': 'raAlpha',
-            'param-ra-beta': 'raBeta',
-            'param-ra-v0': 'raV0',
-            'param-rt': 'rt',
-            'param-lt': 'lt',
-            'param-tv-area': 'tvArea',
-            'param-rv-ees': 'rvEes',
-            'param-rv-alpha': 'rvAlpha',
-            'param-rv-beta': 'rvBeta',
-            'param-rv-v0': 'rvV0',
             'param-la-ees': 'laEes',
             'param-la-alpha': 'laAlpha',
             'param-la-beta': 'laBeta',
@@ -804,27 +719,11 @@ class App {
             'param-lv-alpha': 'lvAlpha',
             'param-lv-beta': 'lvBeta',
             'param-lv-v0': 'lvV0',
-            'param-rp': 'rp',
-            'param-lp': 'lp',
             'param-ra': 'ra',
             'param-la-inert': 'la',
             'param-as-ava': 'asAva',
             'param-ar-eroa': 'arEroa',
             'param-ar-cd': 'arCd',
-            'param-cp': 'cp',
-            'param-pvr': 'pvr',
-            'param-pvr-venous': 'pvrVenous',
-            'param-pa-area': 'paArea',
-            'param-pv-alpha': 'pvAlpha',
-            'param-pv-beta': 'pvBeta',
-            'param-pv-v0': 'pvV0',
-            'param-peri-v0': 'periV0',
-            'param-peri-k': 'periK',
-            'param-peri-vscale': 'periVScale',
-            'param-peri-vknee': 'periVknee',
-            'param-peri-k2': 'periK2',
-            'param-peri-vscale2': 'periVScale2',
-            'param-peri-fluid': 'periFluid',
             'param-ca': 'ca',
             'param-ao-area': 'aoArea',
             'param-svr': 'svr'
@@ -893,8 +792,6 @@ class App {
         const simpleMapping = {
             'simple-hr': 'hr',
             'simple-pv': 'pv',
-            'simple-rv-ees': 'rvEes',
-            'simple-pvr': 'pvr',
             'simple-lv-ees': 'lvEes',
             'simple-lv-alpha': 'lvAlpha',
             'simple-svr': 'svr',
@@ -925,8 +822,7 @@ class App {
             as: { enabledKey: 'asEnabled', valueKey: 'asAva', levels: { mild: 1.7, moderate: 1.2, severe: 0.7 } },
             ar: { enabledKey: 'arEnabled', valueKey: 'arEroa', levels: { mild: 0.3, moderate: 0.5, severe: 0.8 } },
             ms: { enabledKey: 'msEnabled', valueKey: 'msMva', levels: { mild: 1.7, moderate: 1.2, severe: 0.7 } },
-            mr: { enabledKey: 'mrEnabled', valueKey: 'mrEroa', levels: { mild: 0.1, moderate: 0.3, severe: 0.5 } },
-            tr: { enabledKey: 'trEnabled', valueKey: 'trEroa', levels: { mild: 0.1, moderate: 0.3, severe: 0.5 } }
+            mr: { enabledKey: 'mrEnabled', valueKey: 'mrEroa', levels: { mild: 0.1, moderate: 0.3, severe: 0.5 } }
         };
 
         Object.entries(valveConfig).forEach(([key, config]) => {
@@ -953,8 +849,7 @@ class App {
         const params = this.simulator.params;
         const setInput = (id, value) => {
             const el = document.getElementById(id);
-            if (!el || value == null || Number.isNaN(value)) return;
-            el.value = value;
+            if (el) el.value = value;
         };
         const setSelect = (id, value) => {
             const el = document.getElementById(id);
@@ -977,17 +872,6 @@ class App {
         setInput('param-pr', params.prInterval);
         setInput('param-pv', params.pv);
         setInput('param-rv', params.rv);
-        setInput('param-ra-ees', params.raEes);
-        setInput('param-ra-alpha', params.raAlpha);
-        setInput('param-ra-beta', params.raBeta);
-        setInput('param-ra-v0', params.raV0);
-        setInput('param-rt', params.rt);
-        setInput('param-lt', params.lt);
-        setInput('param-tv-area', params.tvArea);
-        setInput('param-rv-ees', params.rvEes);
-        setInput('param-rv-alpha', params.rvAlpha);
-        setInput('param-rv-beta', params.rvBeta);
-        setInput('param-rv-v0', params.rvV0);
         setInput('param-la-ees', params.laEes);
         setInput('param-la-alpha', params.laAlpha);
         setInput('param-la-beta', params.laBeta);
@@ -1025,32 +909,14 @@ class App {
         setInput('param-lv-alpha', params.lvAlpha);
         setInput('param-lv-beta', params.lvBeta);
         setInput('param-lv-v0', params.lvV0);
-        setInput('param-rp', params.rp);
-        setInput('param-lp', params.lp);
         setInput('param-ra', params.ra);
         setInput('param-la-inert', params.la);
-        setInput('param-cp', params.cp);
-        setInput('param-pvr', params.pvr);
-        setInput('param-pvr-venous', params.pvrVenous);
-        setInput('param-pa-area', params.paArea);
-        setInput('param-pv-alpha', params.pvAlpha);
-        setInput('param-pv-beta', params.pvBeta);
-        setInput('param-pv-v0', params.pvV0);
-        setInput('param-peri-v0', params.periV0);
-        setInput('param-peri-k', params.periK);
-        setInput('param-peri-vscale', params.periVScale);
-        setInput('param-peri-vknee', params.periVknee);
-        setInput('param-peri-k2', params.periK2);
-        setInput('param-peri-vscale2', params.periVScale2);
-        setInput('param-peri-fluid', params.periFluid);
         setInput('param-ca', params.ca);
         setInput('param-ao-area', params.aoArea);
         setInput('param-svr', params.svr);
 
         setInput('simple-hr', params.hr);
         setInput('simple-pv', params.pv);
-        setInput('simple-rv-ees', params.rvEes);
-        setInput('simple-pvr', params.pvr);
         setInput('simple-lv-ees', params.lvEes);
         setInput('simple-lv-alpha', params.lvAlpha);
         setInput('simple-svr', params.svr);
@@ -1061,12 +927,10 @@ class App {
         const arValue = params.arEnabled ? pickSeverity(params.arEroa, { mild: 0.3, moderate: 0.5, severe: 0.8 }) : 'none';
         const msValue = params.msEnabled ? pickSeverity(params.msMva, { mild: 1.7, moderate: 1.2, severe: 0.7 }) : 'none';
         const mrValue = params.mrEnabled ? pickSeverity(params.mrEroa, { mild: 0.1, moderate: 0.3, severe: 0.5 }) : 'none';
-        const trValue = params.trEnabled ? pickSeverity(params.trEroa, { mild: 0.1, moderate: 0.3, severe: 0.5 }) : 'none';
         setSelect('simple-as', asValue);
         setSelect('simple-ar', arValue);
         setSelect('simple-ms', msValue);
         setSelect('simple-mr', mrValue);
-        setSelect('simple-tr', trValue);
     }
 
     getScaleSettings() {
@@ -1077,22 +941,16 @@ class App {
         return {
             // PVループ & モニター個別スケール
             laVMax: getVal('la-pv-vmax', 120),
-            laPMax: getVal('la-pv-pmax', 30),      // 30
-            lvVMax: getVal('lv-pv-vmax', 160),
+            laPMax: getVal('la-pv-pmax', 40),      // 40
+            lvVMax: getVal('lv-pv-vmax', 150),
             lvPMax: getVal('lv-pv-pmax', 200),     // 200
-            raVMax: getVal('ra-pv-vmax', 160),
-            raPMax: getVal('ra-pv-pmax', 30),
-            rvVMax: getVal('rv-pv-vmax', 200),
-            rvPMax: getVal('rv-pv-pmax', 60),
             aoPMax: getVal('ao-pv-pmax', 200),     // 200
-            periVMax: getVal('peri-vmax', 700),
-            periPMax: getVal('peri-pmax', 20),
             // モニター波形（PVループとは独立）
-            monitorPressureLvAoMax: getVal('monitor-pressure-lv-ao-max', 200),
-            monitorPressureLaMax: getVal('monitor-pressure-la-max', 60),
-            monitorPressureRvPaMax: getVal('monitor-pressure-rv-pa-max', 60),
+            monitorPressureLvAoMax: getVal('monitor-pressure-lv-ao-max', 150),
+            monitorPressureLaMax: getVal('monitor-pressure-la-max', 40),
             flowMax: getVal('scale-flow-max', 1200),
-            flowMin: getVal('scale-flow-min', -600),
+            flowMin: getVal('scale-flow-min', -200),
+            elastanceMax: getVal('scale-elastance-max', 3),
             balanceXMax: getVal('balance-x-max', 20),
             balanceYMax: getVal('balance-y-max', 12)
         };
@@ -1170,16 +1028,12 @@ class App {
         }
     }
 
-
     applyPressureVitalVisibility() {
         const visibility = this.getWaveformVisibility();
         const mapping = {
             art: visibility.art,
             lap: visibility.lap,
-            lvp: visibility.lvp,
-            rap: visibility.rap,
-            pap: visibility.pap,
-            rvp: visibility.rvp
+            lvp: visibility.lvp
         };
         for (const [key, show] of Object.entries(mapping)) {
             const item = document.querySelector(`[data-vital-item="${key}"]`);
@@ -1196,16 +1050,11 @@ class App {
             art: read('art'),
             lvp: read('lvp'),
             lap: read('lap'),
-            rap: read('rap'),
-            rvp: read('rvp'),
-            pap: read('pap'),
             avFlow: read('avFlow'),
             mvFlow: read('mvFlow'),
-            tvFlow: read('tvFlow'),
             pvFlow: read('pvFlow'),
-            svFlow: read('svFlow'),
-            pvnFlow: read('pvnFlow'),
-            // elastance表示は廃止
+            laElastance: read('laElastance'),
+            lvElastance: read('lvElastance')
         };
     }
 
@@ -1213,12 +1062,8 @@ class App {
         const scales = this.getScaleSettings();
         return {
             pv: {
-                raVMax: scales.raVMax,
-                raPMax: scales.raPMax,
                 laVMax: scales.laVMax,
                 laPMax: scales.laPMax,
-                rvVMax: scales.rvVMax,
-                rvPMax: scales.rvPMax,
                 lvVMax: scales.lvVMax,
                 lvPMax: scales.lvPMax
             }
@@ -1229,12 +1074,8 @@ class App {
         const pv = displaySettings.pv || displaySettings.scales;
         if (!pv) return;
         const scaleMap = {
-            'ra-pv-vmax': pv.raVMax,
-            'ra-pv-pmax': pv.raPMax,
             'la-pv-vmax': pv.laVMax,
             'la-pv-pmax': pv.laPMax,
-            'rv-pv-vmax': pv.rvVMax,
-            'rv-pv-pmax': pv.rvPMax,
             'lv-pv-vmax': pv.lvVMax,
             'lv-pv-pmax': pv.lvPMax
         };
@@ -1417,10 +1258,6 @@ class App {
         const samplesPerCycle = Math.max(1, Math.floor((60 / hr) / SIM_CONFIG.dt));
         const startIndex = Math.max(0, history.time.length - samplesPerCycle);
         return {
-            raVolume: history.raVolume.slice(startIndex),
-            raPressure: history.raPressure.slice(startIndex),
-            rvVolume: history.rvVolume.slice(startIndex),
-            rvPressure: history.rvPressure.slice(startIndex),
             laVolume: history.laVolume.slice(startIndex),
             laPressure: history.laPressure.slice(startIndex),
             lvVolume: history.lvVolume.slice(startIndex),
@@ -1442,64 +1279,33 @@ class App {
         const pvSnapshot = this.getCurrentPvSnapshot();
         const color = this.getNextSavedColor();
         const xMax = this.getScaleSettings().balanceXMax;
-        const id = `drawing-${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        const drawing = {
-            id,
-            name,
-            color,
-            coCurve: null,
-            ra: {
-                volume: pvSnapshot.raVolume,
-                pressure: pvSnapshot.raPressure,
-                ees: paramsSnapshot.raEes,
-                v0: paramsSnapshot.raV0,
-                alpha: paramsSnapshot.raAlpha,
-                beta: paramsSnapshot.raBeta
-            },
-            rv: {
-                volume: pvSnapshot.rvVolume,
-                pressure: pvSnapshot.rvPressure,
-                ees: paramsSnapshot.rvEes,
-                v0: paramsSnapshot.rvV0,
-                alpha: paramsSnapshot.rvAlpha,
-                beta: paramsSnapshot.rvBeta
-            },
-            la: {
-                volume: pvSnapshot.laVolume,
-                pressure: pvSnapshot.laPressure,
-                ees: paramsSnapshot.laEes,
-                v0: paramsSnapshot.laV0,
-                alpha: paramsSnapshot.laAlpha,
-                beta: paramsSnapshot.laBeta
-            },
-            lv: {
-                volume: pvSnapshot.lvVolume,
-                pressure: pvSnapshot.lvPressure,
-                ees: paramsSnapshot.lvEes,
-                v0: paramsSnapshot.lvV0,
-                alpha: paramsSnapshot.lvAlpha,
-                beta: paramsSnapshot.lvBeta
-            }
-        };
-        this.savedDrawings.push(drawing);
-        this.renderSavedDrawings();
-        this.closeSaveDrawingForm();
-        this.chartManager.update(
-            this.simulator,
-            this.getScaleSettings(),
-            this.calculateMetrics(),
-            this.getWaveformVisibility(),
-            this.getBalanceCurvesForChart(),
-            this.savedDrawings
-        );
         this.setBalanceComputeState(true);
         this.computeBalanceCurve(paramsSnapshot, xMax)
             .then((points) => {
                 if (!points || points.length === 0) return;
-                const target = this.savedDrawings.find((item) => item.id === id);
-                if (target) {
-                    target.coCurve = points;
-                }
+                this.savedDrawings.push({
+                    name,
+                    color,
+                    coCurve: points,
+                    la: {
+                        volume: pvSnapshot.laVolume,
+                        pressure: pvSnapshot.laPressure,
+                        ees: paramsSnapshot.laEes,
+                        v0: paramsSnapshot.laV0,
+                        alpha: paramsSnapshot.laAlpha,
+                        beta: paramsSnapshot.laBeta
+                    },
+                    lv: {
+                        volume: pvSnapshot.lvVolume,
+                        pressure: pvSnapshot.lvPressure,
+                        ees: paramsSnapshot.lvEes,
+                        v0: paramsSnapshot.lvV0,
+                        alpha: paramsSnapshot.lvAlpha,
+                        beta: paramsSnapshot.lvBeta
+                    }
+                });
+                this.renderSavedDrawings();
+                this.closeSaveDrawingForm();
                 this.chartManager.update(
                     this.simulator,
                     this.getScaleSettings(),
@@ -1556,17 +1362,11 @@ class App {
             'la-pv-pmax',
             'lv-pv-vmax',
             'lv-pv-pmax',
-            'ra-pv-vmax',
-            'ra-pv-pmax',
-            'rv-pv-vmax',
-            'rv-pv-pmax',
             'monitor-pressure-lv-ao-max',
             'monitor-pressure-la-max',
-            'monitor-pressure-rv-pa-max',
             'scale-flow-max',
             'scale-flow-min',
-            'peri-vmax',
-            'peri-pmax',
+            'scale-elastance-max',
             'balance-x-max',
             'balance-y-max'
         ];
@@ -1626,15 +1426,11 @@ class App {
     }
 
     updateStatus() {
-        const simState = this.simulator.getState();
+        const state = this.simulator.getState();
         const history = this.simulator.getHistory();
-        const setText = (id, value) => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = value;
-        };
 
         // モニター数値更新
-        setText('vital-hr', this.simulator.params.hr);
+        document.getElementById('vital-hr').textContent = this.simulator.params.hr;
 
         // 直近1心周期分のデータを取得
         if (history.aoPressure.length > 10) {
@@ -1646,72 +1442,46 @@ class App {
             const aoSys = Math.max(...recentAoP);
             const aoDia = Math.min(...recentAoP);
             const aoMap = aoDia + (aoSys - aoDia) / 3;
-            setText('vital-sys', Math.round(aoSys));
-            setText('vital-dia', Math.round(aoDia));
-            setText('vital-map', Math.round(aoMap));
-
-            // 肺動脈圧
-            const recentPaP = history.paPressure.slice(-samplesPerCycle);
-            const paSys = Math.max(...recentPaP);
-            const paDia = Math.min(...recentPaP);
-            const paMean = paDia + (paSys - paDia) / 3;
-            setText('vital-pap-sys', Math.round(paSys));
-            setText('vital-pap-dia', Math.round(paDia));
-            setText('vital-pap-mean', Math.round(paMean));
-
-            // 右房圧
-            const recentRAP = history.raPressure.slice(-samplesPerCycle);
-            const rapMax = Math.max(...recentRAP);
-            const rapMin = Math.min(...recentRAP);
-            const rapMean = recentRAP.reduce((a, b) => a + b, 0) / recentRAP.length;
-            setText('vital-rap-max', Math.round(rapMax));
-            setText('vital-rap-min', Math.round(rapMin));
-            setText('vital-rap-mean', Math.round(rapMean));
-
-            // 右室圧
-            const recentRVP = history.rvPressure.slice(-samplesPerCycle);
-            const rvpMax = Math.max(...recentRVP);
-            const rvpMin = Math.min(...recentRVP);
-            const rvpMean = recentRVP.reduce((a, b) => a + b, 0) / recentRVP.length;
-            setText('vital-rvp-max', Math.round(rvpMax));
-            setText('vital-rvp-min', Math.round(rvpMin));
-            setText('vital-rvp-mean', Math.round(rvpMean));
+            document.getElementById('vital-sys').textContent = Math.round(aoSys);
+            document.getElementById('vital-dia').textContent = Math.round(aoDia);
+            document.getElementById('vital-map').textContent = Math.round(aoMap);
 
             // 左房圧
             const recentLAP = history.laPressure.slice(-samplesPerCycle);
             const lapMax = Math.max(...recentLAP);
             const lapMin = Math.min(...recentLAP);
             const lapMean = recentLAP.reduce((a, b) => a + b, 0) / recentLAP.length;
-            setText('vital-lap-max', Math.round(lapMax));
-            setText('vital-lap-min', Math.round(lapMin));
-            setText('vital-lap-mean', Math.round(lapMean));
+            document.getElementById('vital-lap-max').textContent = Math.round(lapMax);
+            document.getElementById('vital-lap-min').textContent = Math.round(lapMin);
+            document.getElementById('vital-lap-mean').textContent = Math.round(lapMean);
 
             // 左室圧
             const recentLVP = history.lvPressure.slice(-samplesPerCycle);
             const lvpMax = Math.max(...recentLVP);
             const lvpMin = Math.min(...recentLVP);
             const lvpMean = recentLVP.reduce((a, b) => a + b, 0) / recentLVP.length;
-            setText('vital-lvp-max', Math.round(lvpMax));
-            setText('vital-lvp-min', Math.round(lvpMin));
-            setText('vital-lvp-mean', Math.round(lvpMean));
+            document.getElementById('vital-lvp-max').textContent = Math.round(lvpMax);
+            document.getElementById('vital-lvp-min').textContent = Math.round(lvpMin);
+            document.getElementById('vital-lvp-mean').textContent = Math.round(lvpMean);
 
             // SV（1回拍出量）= LV容量の変化
             const recentLVV = history.lvVolume.slice(-samplesPerCycle);
             const edv = Math.max(...recentLVV);  // 拡張末期容量
             const esv = Math.min(...recentLVV);  // 収縮末期容量
             const sv = edv - esv;
-            setText('vital-sv', Math.round(sv));
+            document.getElementById('vital-sv').textContent = Math.round(sv);
 
             // CO（心拍出量）= SV × HR / 1000 (L/min)
             const co = sv * this.simulator.params.hr / 1000;
-            setText('vital-co', co.toFixed(1));
+            document.getElementById('vital-co').textContent = co.toFixed(1);
 
             // SVR（全身血管抵抗）: 既にdynes·sec·cm⁻⁵で格納
-            setText('vital-svr', Math.round(this.simulator.params.svr));
+            document.getElementById('vital-svr').textContent = Math.round(this.simulator.params.svr);
 
             // LVEDP（左室拡張末期圧）: 僧帽弁閉鎖時の値を使用
-            const lvedp = simState.lvEDP != null ? simState.lvEDP : (recentLVP[recentLVV.indexOf(edv)] || lvpMin);
-            setText('vital-lvedp', Math.round(lvedp));
+            const state = this.simulator.getState();
+            const lvedp = state.lvEDP != null ? state.lvEDP : (recentLVP[recentLVV.indexOf(edv)] || lvpMin);
+            document.getElementById('vital-lvedp').textContent = Math.round(lvedp);
         }
     }
 
@@ -1724,16 +1494,12 @@ class App {
         if (history.lvVolume.length < 10) return null;
 
         const params = this.simulator.params;
-        const simState = this.simulator.getState();
         const cycleDuration = 60 / this.simulator.params.hr;
         const samplesPerCycle = Math.floor(cycleDuration / SIM_CONFIG.dt);
 
         // 直近1心周期分のデータを抽出
-        const sliceRecent = (arr) => (arr && arr.length > 0
-            ? arr.slice(-Math.min(samplesPerCycle, arr.length))
-            : []);
-        const lvV = sliceRecent(history.lvVolume);
-        const lvP = sliceRecent(history.lvPressure);
+        const lvV = history.lvVolume.slice(-samplesPerCycle);
+        const lvP = history.lvPressure.slice(-samplesPerCycle);
 
         if (lvV.length === 0) return null;
 
@@ -1747,10 +1513,11 @@ class App {
 
         // Ea (mmHg/mL) = ESP / SV
         // ESPは簡易的に最大左室圧を使用
-        const espFromState = simState.lvESPTime != null
-            && simState.lvESP != null
-            && (simState.time - simState.lvESPTime) <= cycleDuration * 1.2;
-        const esp = espFromState ? simState.lvESP : Math.max(...lvP);
+        const state = this.simulator.getState();
+        const espFromState = state.lvESPTime != null
+            && state.lvESP != null
+            && (state.time - state.lvESPTime) <= cycleDuration * 1.2;
+        const esp = espFromState ? state.lvESP : Math.max(...lvP);
         const ea = sv > 0 ? esp / sv : 0;
 
         // Ees (mmHg/mL) - パラメータから取得
