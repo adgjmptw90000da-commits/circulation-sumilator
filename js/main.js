@@ -53,6 +53,7 @@ class App {
         this.updateSimpleGroupVisibility();
         this.setupNumberSteppers();
         this.applyParamLabelSizing();
+        this.applyParamMinZero();
         this.setParamsTab(this.activeParamsTab);
         this.renderSavedDrawings();
         this.setAdminLoggedIn(false);
@@ -69,6 +70,14 @@ class App {
                 label.classList.add('label-small');
             }
         });
+    }
+
+    applyParamMinZero() {
+        document
+            .querySelectorAll('.param-section input[type="number"]')
+            .forEach((input) => {
+                input.setAttribute('min', '0');
+            });
     }
 
     bindEvents() {
