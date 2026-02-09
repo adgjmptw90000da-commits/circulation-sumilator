@@ -196,6 +196,7 @@
                                     <option value="aortic-valve">大動脈弁</option>
                                     <option value="aorta">大動脈</option>
                                     <option value="pericardium">心膜</option>
+                                    <option value="mcs">MCS</option>
                                 </select>
                             </div>
 
@@ -520,6 +521,23 @@
                                     <div class="param-row">
                                         <label class="label-small">心膜液量 (mL)</label>
                                         <input type="number" id="param-peri-fluid" value="0" step="10" min="0" max="500">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="param-section param-group" data-group="mcs">
+                                <div class="param-section-header">MCS</div>
+                                <div class="param-content">
+                                    <div class="param-row">
+                                        <label>V-A ECMO</label>
+                                        <select id="param-ecmo">
+                                            <option value="off" selected>オフ</option>
+                                            <option value="on">オン</option>
+                                        </select>
+                                    </div>
+                                    <div class="param-row">
+                                        <label>ECMO流量 (L/min)</label>
+                                        <input type="number" id="param-ecmo-flow" value="3" step="0.1" min="0">
                                     </div>
                                 </div>
                             </div>

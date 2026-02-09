@@ -1075,7 +1075,10 @@ class CirculationSimulator {
         this.state.pulmonaryVenousFlow = pulmonaryVenousFlow;
 
         // === Step 4: 容量更新 ===
-        this.state.raVolume += (systemicVenousFlow - tricuspidFlow) * dt;
+        const ecmoFlow = this.params.ecmoEnabled
+            ? (this.params.ecmoFlowLpm || 0) * 1000 / 60
+            : 0;
+        this.state.raVolume += (systemicVenousFlow - tricuspidFlow - ecmoFlow) * dt;
         this.state.rvVolume += (tricuspidFlow - pulmonaryFlow) * dt;
 
         this.state.laVolume += (pulmonaryVenousFlow - mitralFlow) * dt;
@@ -1214,9 +1217,10 @@ class CirculationSimulator {
         this.state.vvVolume += (aorticOutflow - systemicVenousFlow) * dt;
 
         // リザーバー圧（Windkessel）
+        const aorticInflow = aorticFlow + ecmoFlow;
         const nextReservoirPressure = Math.max(
             0,
-            aoReservoirPressure + (aorticFlow - aorticOutflow) / this.params.ca * dt
+            aoReservoirPressure + (aorticInflow - aorticOutflow) / this.params.ca * dt
         );
         this.state.aoReservoirPressure = nextReservoirPressure;
 

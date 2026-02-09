@@ -827,7 +827,8 @@ class App {
             'param-peri-fluid': 'periFluid',
             'param-ca': 'ca',
             'param-ao-area': 'aoArea',
-            'param-svr': 'svr'
+            'param-svr': 'svr',
+            'param-ecmo-flow': 'ecmoFlowLpm'
         };
 
         for (const [inputId, paramKey] of Object.entries(paramMapping)) {
@@ -879,6 +880,14 @@ class App {
             laContractionSelect.addEventListener('change', (e) => {
                 const enabled = e.target.value === 'on';
                 applyParamUpdate('laContractionEnabled', enabled);
+            });
+        }
+
+        const ecmoSelect = document.getElementById('param-ecmo');
+        if (ecmoSelect) {
+            ecmoSelect.addEventListener('change', (e) => {
+                const enabled = e.target.value === 'on';
+                applyParamUpdate('ecmoEnabled', enabled);
             });
         }
     }
@@ -1046,6 +1055,11 @@ class App {
         setInput('param-ca', params.ca);
         setInput('param-ao-area', params.aoArea);
         setInput('param-svr', params.svr);
+        setInput('param-ecmo-flow', params.ecmoFlowLpm);
+        const ecmoSelect = document.getElementById('param-ecmo');
+        if (ecmoSelect) {
+            ecmoSelect.value = params.ecmoEnabled ? 'on' : 'off';
+        }
 
         setInput('simple-hr', params.hr);
         setInput('simple-pv', params.pv);

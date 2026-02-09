@@ -97,7 +97,11 @@ const DEFAULT_PARAMS = {
     // 大動脈
     ca: 1.5,          // mL/mmHg
     svr: 1000,        // dynes·sec·cm⁻⁵
-    aoArea: 8.0       // cm^2（上行大動脈断面積: Water hammer項）
+    aoArea: 8.0,      // cm^2（上行大動脈断面積: Water hammer項）
+
+    // MCS / V-A ECMO
+    ecmoEnabled: false,
+    ecmoFlowLpm: 3.0  // L/min（固定流量）
 };
 
 // シミュレーション設定
