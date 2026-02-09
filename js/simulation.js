@@ -958,6 +958,29 @@ class CirculationSimulator {
         return denom > 0 ? 1 / denom : 1e6;
     }
 
+    /**
+     * 心膜圧（弾性モデル）
+     */
+    calcPericardialPressure(totalVolume) {
+        const v0 = this.params.periV0 ?? 0;
+        const k = this.params.periK ?? 0;
+        const vScale = this.params.periVScale ?? 1;
+        const knee = this.params.periVknee ?? (v0 + vScale * 2);
+        const k2 = this.params.periK2 ?? 0;
+        const vScale2 = this.params.periVScale2 ?? vScale;
+        if ((k <= 0 || vScale <= 0) && (k2 <= 0 || vScale2 <= 0)) return 0;
+        const vEff = Math.max(0, totalVolume - v0);
+        let pressure = 0;
+        if (k > 0 && vScale > 0) {
+            pressure += k * (Math.exp(vEff / vScale) - 1);
+        }
+        if (k2 > 0 && vScale2 > 0 && totalVolume > knee) {
+            const vEff2 = Math.max(0, totalVolume - knee);
+            pressure += k2 * (Math.exp(vEff2 / vScale2) - 1);
+        }
+        return pressure;
+    }
+
     updateLARetroSources(dt) {
         const tau = Math.max(0.005, this.params.paRetroTau || 0.06);
         const meanTau = Math.max(0.05, this.params.paRetroMeanTau || 0.5);
@@ -1065,6 +1088,12 @@ class CirculationSimulator {
         }
         this.state.pvVolume = Math.max(this.state.pvVolume, this.params.pvV0 + 0.1);
 
+        // === Step 4.5: 心膜圧（総心容量 + 心膜液量）===
+        const heartVolume = this.state.raVolume + this.state.rvVolume + this.state.laVolume + this.state.lvVolume;
+        const periVolume = heartVolume + (this.params.periFluid || 0);
+        const periPressure = this.calcPericardialPressure(periVolume);
+        this.state.periPressure = Number.isFinite(periPressure) ? periPressure : 0;
+
 
         // === Step 5: 左房パッシブエラスタンスの更新 ===
         this.updateLAPassiveElastance(dt);
@@ -1086,8 +1115,8 @@ class CirculationSimulator {
 
         // === Step 7: 圧力計算 ===
         // LV圧: P = E × (V - V0)
-        this.state.lvPressure = Math.max(0, lvE * (this.state.lvVolume - this.params.lvV0));
-        this.state.rvPressure = Math.max(0, rvE * (this.state.rvVolume - this.params.rvV0));
+        const lvPtm = Math.max(0, lvE * (this.state.lvVolume - this.params.lvV0));
+        const rvPtm = Math.max(0, rvE * (this.state.rvVolume - this.params.rvV0));
         const raEDPVRPressure = raE * (this.state.raVolume - this.params.raV0);
 
         // LA圧: 導管期は充満度に応じてLV圧との補間
@@ -1099,7 +1128,7 @@ class CirculationSimulator {
         if (isConduitPhase) {
             // 導管期: LA圧は充満度に応じてEDPVR圧とLV圧の間を補間
             const w = this.calcLAFillWeight(this.state.laVolume);
-            let laPressure = w * laEDPVRPressure + (1 - w) * this.state.lvPressure;
+            let laPressure = w * laEDPVRPressure + (1 - w) * lvPtm;
 
             // LV急速充満によるベルヌーイ圧低下（負圧を許容）
             const qForward = Math.max(0, this.state.mitralForwardFlow || 0);
@@ -1112,10 +1141,10 @@ class CirculationSimulator {
                 }
             }
 
-            this.state.laPressure = laPressure;
+            this.state.laPressure = laPressure + this.state.periPressure;
         } else {
             // Reservoir / Booster pump phase: 通常のEDPVR圧
-            this.state.laPressure = laEDPVRPressure;
+            this.state.laPressure = laEDPVRPressure + this.state.periPressure;
         }
 
         // 肺静脈リザーバー圧（容量依存EDPVR）
@@ -1135,7 +1164,7 @@ class CirculationSimulator {
         const isRAConduitPhase = this.tricuspidValveOpen && !this.raContracting && !this.raRelaxing;
         if (isRAConduitPhase) {
             const w = this.calcRAFillWeight(this.state.raVolume);
-            let raPressure = w * raEDPVRPressure + (1 - w) * this.state.rvPressure;
+            let raPressure = w * raEDPVRPressure + (1 - w) * rvPtm;
 
             const qForward = Math.max(0, this.state.tricuspidForwardFlow || 0);
             const area = this.params.tvArea || 0;
@@ -1147,10 +1176,13 @@ class CirculationSimulator {
             const deltaPBern = prevBern + (rawBern - prevBern) * alpha;
             this.state.raBernoulliLPF = deltaPBern;
             raPressure -= deltaPBern;
-            this.state.raPressure = raPressure;
+            this.state.raPressure = raPressure + this.state.periPressure;
         } else {
-            this.state.raPressure = raEDPVRPressure;
+            this.state.raPressure = raEDPVRPressure + this.state.periPressure;
         }
+
+        this.state.lvPressure = lvPtm + this.state.periPressure;
+        this.state.rvPressure = rvPtm + this.state.periPressure;
 
         if (cycleWrapped) {
             this.state.lvEDP = this.cycleMaxLVPressure;

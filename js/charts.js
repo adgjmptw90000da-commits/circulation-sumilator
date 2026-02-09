@@ -23,6 +23,7 @@ class ChartManager {
             coCurve: '#ff6b6b', // CO曲線
             vrCurve: '#5c7cfa', // 静脈還流曲線
             eqPoint: '#ffd43b', // 平衡点
+            pericardium: '#adb5ff', // 心膜曲線
             grid: '#333333',
             text: '#888888',
             cursor: 'rgba(255, 255, 255, 0.5)',
@@ -46,6 +47,7 @@ class ChartManager {
         this.charts.laPV = this.setupCanvas('chart-la-pv');
         this.charts.lvPV = this.setupCanvas('chart-lv-pv');
         this.charts.balance = this.setupCanvas('chart-balance');
+        this.charts.pericardium = this.setupCanvas('chart-pericardium');
     }
 
     setupCanvas(id) {
@@ -625,6 +627,116 @@ class ChartManager {
         ctx.fillText('CO', width - 6, 12);
     }
 
+    drawPericardiumChart(chart, simulator, scaleSettings = {}) {
+        if (!chart || !simulator) return;
+        const { ctx, width, height } = chart;
+        const params = simulator.params || {};
+        const v0 = params.periV0 ?? 0;
+        const vScale = params.periVScale ?? 1;
+        const k = params.periK ?? 0;
+        const fluid = params.periFluid ?? 0;
+        const state = simulator.getState();
+        const heartVolume = (state.raVolume || 0) + (state.rvVolume || 0) + (state.laVolume || 0) + (state.lvVolume || 0);
+        const totalVolume = heartVolume + fluid;
+
+        const vMin = 0;
+        const vMaxDisplay = Math.max(vMin + 10, scaleSettings.periVMax || (v0 + vScale * 8));
+        const curveVMax = Math.max(
+            v0 + vScale * 8,
+            (params.periVknee ?? v0) + (params.periVScale2 ?? vScale) * 8,
+            totalVolume + 20,
+            vMaxDisplay
+        );
+        const curveKey = [
+            v0, vScale, k,
+            params.periVknee ?? '',
+            params.periK2 ?? '',
+            params.periVScale2 ?? ''
+        ].join('|');
+        if (!this.periCurveCache) this.periCurveCache = { key: '', max: 0, points: [] };
+        if (this.periCurveCache.key !== curveKey || this.periCurveCache.max !== curveVMax) {
+            const step = Math.max(1, curveVMax / 200);
+            const points = [];
+            for (let v = vMin; v <= curveVMax + 1e-6; v += step) {
+                const p = typeof simulator.calcPericardialPressure === 'function'
+                    ? simulator.calcPericardialPressure(v)
+                    : 0;
+                points.push({ v, p });
+            }
+            this.periCurveCache = { key: curveKey, max: curveVMax, points };
+        }
+        const curve = this.periCurveCache.points;
+        let displayCurve = curve.filter((point) => point.v >= vMin && point.v <= vMaxDisplay);
+        if (displayCurve.length < 2) {
+            const points = 60;
+            displayCurve = [];
+            for (let i = 0; i <= points; i++) {
+                const v = vMin + (vMaxDisplay - vMin) * (i / points);
+                const p = typeof simulator.calcPericardialPressure === 'function'
+                    ? simulator.calcPericardialPressure(v)
+                    : 0;
+                displayCurve.push({ v, p });
+            }
+        }
+        let yMax = Math.max(5, scaleSettings.periPMax || 0);
+        if (!(scaleSettings.periPMax > 0)) {
+            displayCurve.forEach((point) => {
+                if (point.p > yMax) yMax = point.p;
+            });
+            yMax = Math.max(5, yMax * 1.1);
+        }
+
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(0, 0, width, height);
+        this.drawGrid(chart, vMin, vMaxDisplay, 0, yMax, '', '', false);
+
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(0, 0, width, height);
+        ctx.clip();
+        ctx.strokeStyle = this.colors.pericardium;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        let started = false;
+        for (const point of displayCurve) {
+            const x = ((point.v - vMin) / (vMaxDisplay - vMin)) * width;
+            const rawY = height - (point.p / yMax) * height;
+            if (rawY < 0) {
+                const y = 0;
+                if (!started) {
+                    ctx.moveTo(x, y);
+                    started = true;
+                } else {
+                    ctx.lineTo(x, y);
+                }
+                break;
+            }
+            const y = rawY > height - 1 ? height - 1 : rawY;
+            if (!started) {
+                ctx.moveTo(x, y);
+                started = true;
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        ctx.stroke();
+        ctx.restore();
+
+        const currentP = typeof simulator.calcPericardialPressure === 'function'
+            ? simulator.calcPericardialPressure(totalVolume)
+            : 0;
+        const clampedV = Math.max(vMin, Math.min(vMaxDisplay, totalVolume));
+        const dotX = ((clampedV - vMin) / (vMaxDisplay - vMin)) * width;
+        const rawDotY = height - (currentP / yMax) * height;
+        const dotY = Math.min(height - 1, Math.max(1, rawDotY));
+        ctx.fillStyle = this.colors.pericardium;
+        ctx.beginPath();
+        ctx.arc(dotX, dotY, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        this.drawGridLabels(chart, vMin, vMaxDisplay, 0, yMax);
+    }
+
     /**
      * すべてのチャートを更新
      */
@@ -877,6 +989,11 @@ class ChartManager {
         // === 循環平衡（CO/VR） ===
         if (this.charts.balance) {
             this.drawBalanceChart(this.charts.balance, simulator, scaleSettings, balanceCurve);
+        }
+
+        // === 心膜 PV関係 ===
+        if (this.charts.pericardium) {
+            this.drawPericardiumChart(this.charts.pericardium, simulator, scaleSettings);
         }
     }
 }

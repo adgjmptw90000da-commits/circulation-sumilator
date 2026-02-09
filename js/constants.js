@@ -34,6 +34,15 @@ const DEFAULT_PARAMS = {
     trEroa: 0.1,      // cm^2（逆流弁口面積）
     trCd: 0.75,       // 逆流オリフィス係数（Cd）
 
+    // 心膜
+    periV0: 550,      // mL（心膜の基準容量）
+    periK: 0.2,       // mmHg（硬さスケール）
+    periVScale: 35,   // mL（曲率スケール）
+    periFluid: 0,     // mL（心膜液量）
+    periVknee: 750,   // mL（収縮性心膜炎の屈曲開始容量）
+    periK2: 1,        // mmHg（屈曲以降の硬さスケール）
+    periVScale2: 14,  // mL（屈曲以降の曲率スケール）
+
     // 僧帽弁
     rm: 0.01,         // mmHg·s/mL
     lm: 0.0001,       // mmHg·s²/mL
@@ -116,6 +125,7 @@ const INITIAL_STATE = {
     raPressure: 5,   // mmHg
     raElastance: 0,  // mmHg/mL
     raBernoulliLPF: 0, // mmHg（RA導管期ベルヌーイ項LPF）
+    periPressure: 0, // mmHg（心膜圧）
 
     // 左室
     lvVolume: 120,   // mL

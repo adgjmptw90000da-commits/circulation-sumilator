@@ -812,6 +812,13 @@ class App {
             'param-pv-alpha': 'pvAlpha',
             'param-pv-beta': 'pvBeta',
             'param-pv-v0': 'pvV0',
+            'param-peri-v0': 'periV0',
+            'param-peri-k': 'periK',
+            'param-peri-vscale': 'periVScale',
+            'param-peri-vknee': 'periVknee',
+            'param-peri-k2': 'periK2',
+            'param-peri-vscale2': 'periVScale2',
+            'param-peri-fluid': 'periFluid',
             'param-ca': 'ca',
             'param-ao-area': 'aoArea',
             'param-svr': 'svr'
@@ -1022,6 +1029,13 @@ class App {
         setInput('param-pv-alpha', params.pvAlpha);
         setInput('param-pv-beta', params.pvBeta);
         setInput('param-pv-v0', params.pvV0);
+        setInput('param-peri-v0', params.periV0);
+        setInput('param-peri-k', params.periK);
+        setInput('param-peri-vscale', params.periVScale);
+        setInput('param-peri-vknee', params.periVknee);
+        setInput('param-peri-k2', params.periK2);
+        setInput('param-peri-vscale2', params.periVScale2);
+        setInput('param-peri-fluid', params.periFluid);
         setInput('param-ca', params.ca);
         setInput('param-ao-area', params.aoArea);
         setInput('param-svr', params.svr);
@@ -1064,6 +1078,8 @@ class App {
             rvVMax: getVal('rv-pv-vmax', 200),
             rvPMax: getVal('rv-pv-pmax', 60),
             aoPMax: getVal('ao-pv-pmax', 200),     // 200
+            periVMax: getVal('peri-vmax', 700),
+            periPMax: getVal('peri-pmax', 20),
             // モニター波形（PVループとは独立）
             monitorPressureLvAoMax: getVal('monitor-pressure-lv-ao-max', 200),
             monitorPressureLaMax: getVal('monitor-pressure-la-max', 60),
@@ -1541,6 +1557,8 @@ class App {
             'monitor-pressure-rv-pa-max',
             'scale-flow-max',
             'scale-flow-min',
+            'peri-vmax',
+            'peri-pmax',
             'balance-x-max',
             'balance-y-max'
         ];
