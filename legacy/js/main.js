@@ -73,12 +73,6 @@ class App {
             });
         }
         document.getElementById('resetBtn').addEventListener('click', () => this.reset());
-        const modelToggleBtn = document.getElementById('modelToggleBtn');
-        if (modelToggleBtn) {
-            modelToggleBtn.addEventListener('click', () => {
-                window.location.href = '../index.html';
-            });
-        }
 
         const paramGroupSelect = document.getElementById('paramGroupSelect');
         if (paramGroupSelect) {
